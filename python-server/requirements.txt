@@ -1,0 +1,9 @@
+ultralytics==8.0.114
+pandas
+opencv-python
+numpy
+scipy
+easyocr
+filterpy
+fastapi[standard]
+ffmpeg-python==0.2.0
