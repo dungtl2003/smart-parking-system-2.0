@@ -1,11 +1,12 @@
 from contextlib import asynccontextmanager
+import logging
 from multiprocessing import Queue, Event, Process
 import os
 import signal as kill_signal
+from pydantic import BaseModel
 import uvicorn
+import time
 
-from app.v1.cards.schemas import Response as CardValidationResponse
-from app.v1.cards import services as card_services
 from app.config import LOGGING_CONFIG
 from fastapi import APIRouter, FastAPI
 from app.processes.camera import camera_recording_task
@@ -16,7 +17,7 @@ from app.processes.publish import video_publishing_task
 import app.preload as preload
 
 processes: list[Process] = []
-logger = preload.logger
+logger = logging.getLogger("uvicorn")
 settings = preload.settings
 
 frame_queue: Queue = Queue(maxsize=1)  # type: MatLike
@@ -88,20 +89,45 @@ app = FastAPI(
 api_router = APIRouter(prefix=settings.api_route)
 
 
-@api_router.get("/cards/validate")
-async def validate_card(timeout: int = 5000) -> CardValidationResponse:
-    """
-    Validate a card
+class RequestBody(BaseModel):
+    plate_number: str
 
-    :param int timeout: Timeout in seconds
+
+@api_router.post("/validate-car-plate")
+async def validate_car_plate(body: RequestBody, timeout: int = 5000) -> dict[str, str]:
+    """
+    Validate a car plate number
+
+    :param RequestBody body: Request body
+    :param int timeout: Timeout in milliseconds
+
     :return: Validation status
-
+    :rtype: dict[str, str]
     """
-    logger.info("Validating card")
-    card_validation_response = await card_services.validate_card(
-        settings.fetch_card_vehicle_url, plate_number_queue, timeout
-    )
-    return card_validation_response
+    plate_number = body.plate_number
+    logger.info(f"Validating plate number: {plate_number}")
+    start = time.time()
+
+    logger.debug("Setting recognition event")
+    recognition_event.set()
+    response = {"status": "invalid"}
+    while time.time() - start < timeout / 1000:
+        if plate_number_queue.empty():
+            continue
+
+        plate_numbers = plate_number_queue.get()
+        if plate_number in plate_numbers:
+            logger.info(f"Plate number {plate_number} is valid")
+            response = {"status": "valid"}
+
+    logger.debug("Clearing recognition event")
+    recognition_event.clear()
+
+    logger.info(f"Returning response: {response}")
+    return response
+
+
+app.include_router(api_router)
 
 
 @app.get("/ping")
@@ -111,7 +137,6 @@ async def ping():
 
 
 def main():
-    app.include_router(api_router)
     uvicorn.run("main:app", host="0.0.0.0", port=8000, log_config=LOGGING_CONFIG)
 
 

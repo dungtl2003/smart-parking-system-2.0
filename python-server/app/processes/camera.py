@@ -1,5 +1,6 @@
 import logging
 from multiprocessing.synchronize import Event
+import os
 import time
 from datetime import datetime
 from multiprocessing import Queue
@@ -50,6 +51,7 @@ def camera_recording_task(
     output_file = f"recording_{current_time}.mp4"
     logger.debug(f"Started new file: {output_file}")
     out = cv2.VideoWriter(output_file, fourcc, fps, (frame_width, frame_height))
+    unfinished_video = output_file
 
     # Initialize FPS calculation
     prev_time = time.time()
@@ -121,6 +123,7 @@ def camera_recording_task(
             current_time = datetime.now().strftime("%Y%m%d%H%M%S")
             output_file = f"recording_{current_time}.mp4"
             out = cv2.VideoWriter(output_file, fourcc, fps, (frame_width, frame_height))
+            unfinished_video = output_file
             logger.debug(f"Started new file: {output_file}")
             last_time = time.time()
 
@@ -128,6 +131,10 @@ def camera_recording_task(
             break
 
     # Release everything if job is finished
+    if os.path.exists(unfinished_video):
+        logger.debug(f"Removing unfinished video: {unfinished_video}")
+        os.remove(unfinished_video)
+
     cam.release()
     out.release()
     cv2.destroyAllWindows()

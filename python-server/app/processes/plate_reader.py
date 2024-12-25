@@ -147,6 +147,10 @@ def plate_number_recognition_task(
     logger.info("Plate number recognition is running")
 
     while not stop_event.is_set():
+        if not recognition_event.is_set():
+            continue
+
+        logger.debug("Recognizing plate numbers")
         while recognition_event.is_set() and not stop_event.is_set():
             if frame_queue.empty():
                 continue
