@@ -32,3 +32,5 @@ archive.zip
 # temp
 license_plate_detector.pt
 yolov8n.pt
+
+.env
