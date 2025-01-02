@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 import logging
-from multiprocessing import Queue, Event, Process
+from multiprocessing import Queue, Event, Process, Value
 import os
 import signal as kill_signal
 from pydantic import BaseModel
@@ -24,6 +24,7 @@ frame_queue: Queue = Queue(maxsize=1)  # type: MatLike
 raw_video_queue: Queue = Queue(maxsize=10)  # type: Tuple[str, float, float]
 proceed_video_queue: Queue = Queue(maxsize=10)  # type: str
 plate_number_queue: Queue = Queue(maxsize=100)  # type: list[str]
+total_frames = Value("i", 0)
 stop_event = Event()
 recognition_event = Event()
 
@@ -33,12 +34,12 @@ def start_background_tasks():
         (
             "camera worker",
             camera_recording_task,
-            (stop_event, frame_queue, raw_video_queue),
+            (stop_event, frame_queue, recognition_event, raw_video_queue, total_frames),
         ),
         (
             "video worker",
             video_processing_task,
-            (stop_event, raw_video_queue, proceed_video_queue),
+            (stop_event, raw_video_queue, proceed_video_queue, total_frames),
         ),
         (
             "plate reader worker",
@@ -119,6 +120,7 @@ async def validate_car_plate(body: RequestBody, timeout: int = 5000) -> dict[str
         if plate_number in plate_numbers:
             logger.info(f"Plate number {plate_number} is valid")
             response = {"status": "valid"}
+            break
 
     logger.debug("Clearing recognition event")
     recognition_event.clear()

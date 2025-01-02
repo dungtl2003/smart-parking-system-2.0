@@ -39,17 +39,6 @@ def resolve_path():
     [sys.path.append(module) if module not in sys.path else None for module in modules]
 
 
-# load models
-print("Loading models")
-coco_model = YOLO(os.path.join(definitions.AI_MODEL_PATH, "yolov8n.pt"))
-license_plate_detector = YOLO(
-    os.path.join(definitions.AI_MODEL_PATH, "license_plate_detector.pt")
-)
-
-# load easyocr
-print("Loading OCR")
-reader = easyocr.Reader(["en"], gpu=False)
-
 print("Resolving path")
 resolve_path()
 

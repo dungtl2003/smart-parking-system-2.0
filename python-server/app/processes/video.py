@@ -19,7 +19,7 @@ def get_video_duration(file: str) -> float:
         raise RuntimeError(f"FFmpeg error: {e.stderr.decode('utf-8')}")
 
 
-def process_video_file(video_file: str, expected_fps: float, expected_duration: float):
+def process_video_file(video_file: str, expected_duration: float, total_frames: int):
     logger = logging.getLogger("uvicorn")
 
     if not os.path.isfile(video_file):
@@ -27,7 +27,7 @@ def process_video_file(video_file: str, expected_fps: float, expected_duration: 
 
     video_duration = get_video_duration(video_file)
 
-    actual_fps = expected_fps * (video_duration / expected_duration)
+    actual_fps = total_frames / video_duration
     duration_ratio = expected_duration / video_duration
 
     temp_output_file = f"temp_{video_file}"
@@ -53,7 +53,10 @@ def process_video_file(video_file: str, expected_fps: float, expected_duration: 
 
 
 def video_processing_task(
-    stop_event: Event, raw_video_queue: Queue, proceed_video_queue: Queue
+    stop_event: Event,
+    raw_video_queue: Queue,
+    proceed_video_queue: Queue,
+    total_frames,
 ) -> None:
     """
     Run the video processing process.
@@ -74,7 +77,7 @@ def video_processing_task(
             video_file, expected_fps, expected_duration = raw_video_queue.get()
 
             try:
-                process_video_file(video_file, expected_fps, expected_duration)
+                process_video_file(video_file, expected_duration, total_frames.value)
 
                 if proceed_video_queue.full():
                     logger.warning(

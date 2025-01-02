@@ -11,8 +11,10 @@ import cv2
 def camera_recording_task(
     stop_event: Event,
     frame_queue: Queue,
+    recognition_event: Event,
     raw_video_queue: Queue,
-    length: int = 30,
+    total_frames,
+    length: int = 60,
     fps: float = 30.0,
 ) -> None:
     """
@@ -20,6 +22,7 @@ def camera_recording_task(
 
     :param Event stop_event: Event to stop the process.
     :param multiprocessing.Queue frame_queue: Queue to store the frames.
+    :param Event recognition_event: Event to start the recognition process.
     :param multiprocessing.Queue raw_video_queue: Queue to store the video files.
     :param int length: Length of the video file (in seconds).
     :param float fps: Frames per second.
@@ -59,25 +62,28 @@ def camera_recording_task(
     # Start recording
     last_time = time.time()
 
+    # Rectangle parameters
+    x, y, w, h = 320, 300, 250, 170
+    color = (0, 255, 0)  # Green color
+    thickness = 2  # Rectangle border thickness
+
+    temp_total_frames = 0
+
     while not stop_event.is_set():
         ret, frame = cam.read()
+        temp_total_frames += 1
 
         if not ret:
             logger.error("Could not read frame")
             continue
 
-        # Put the frame into the queue
-        if not frame_queue.empty():
-            try:
-                frame_queue.get_nowait()
-            except Exception:
-                pass
+        extracted_region = frame[y : y + h, x : x + w]
+        if recognition_event.is_set() and frame_queue.empty():
+            # Put the frame into the queue
+            frame_queue.put(extracted_region)
 
         # Get the current time
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        # Write the frame to the output file
-        out.write(frame)
 
         # Put Time (white text) on the top-right
         cv2.putText(
@@ -86,9 +92,12 @@ def camera_recording_task(
             (frame.shape[1] - 270, 30),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.7,
-            (255, 255, 255),
+            (0, 192, 255),  # bgr, not rgb
             2,
         )
+
+        # Write the frame to the output file
+        out.write(frame)
 
         # Calculate FPS
         curr_time = time.time()
@@ -102,9 +111,11 @@ def camera_recording_task(
             (10, 30),
             cv2.FONT_HERSHEY_SIMPLEX,
             1,
-            (0, 255, 0),
+            (50, 205, 50),  # lime
             2,
         )
+
+        cv2.rectangle(frame, (x, y), (x + w, y + h), color, thickness)
 
         # Display the captured frame
         cv2.imshow("Recording", frame)
@@ -115,6 +126,7 @@ def camera_recording_task(
             # Close the current video file
             out.release()
             logger.debug(f"Stopped recording: {output_file}")
+            total_frames.value = temp_total_frames
 
             # Put the video file into the queue
             raw_video_queue.put((output_file, fps, length))
@@ -126,6 +138,8 @@ def camera_recording_task(
             unfinished_video = output_file
             logger.debug(f"Started new file: {output_file}")
             last_time = time.time()
+
+            temp_total_frames = 0
 
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
