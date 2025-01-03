@@ -10,7 +10,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SubmitHandler, useForm } from "react-hook-form";
-import { NavLink } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import axios, { HttpStatusCode } from "axios";
 import { LoadingSpinner } from "@/components/effect";
@@ -107,7 +106,7 @@ const Login: FC = () => {
               className="text-lg pr-16"
             />
             <button
-              className="absolute right-3 bottom-[2.7rem] text-muted-foreground border-l-2 pl-3"
+              className="absolute right-3 bottom-[0.5rem] text-muted-foreground border-l-2 pl-3"
               onClick={(e) => {
                 e.preventDefault();
                 setPasswordvisibility(!passwordVisibility);
@@ -118,12 +117,6 @@ const Login: FC = () => {
             {errors.password && (
               <div className="text-red-600">{errors.password.message}</div>
             )}
-            <NavLink
-              to="/login"
-              className="text-lg underline hover_opacity-60 self-end"
-            >
-              Forgot password?
-            </NavLink>
           </div>
         </CardContent>
         <CardFooter className="flex flex-col justify-center">

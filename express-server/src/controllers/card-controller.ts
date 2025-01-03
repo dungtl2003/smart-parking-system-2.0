@@ -54,9 +54,11 @@ const deleteCard = async (req: Request, res: Response) => {
 const validateCard = async (req: Request, res: Response) => {
     let cardId = req.query.cardId as string;
     if (cardId) {
+        console.log(cardId);
         cardId = cardId.trim();
     }
     const vehicle = await cardService.getCardLinkedToVehicle(cardId);
+    console.log(vehicle);
 
     try {
         const scanResult = await axios.post<{status: "valid" | "invalid"}>(
@@ -68,6 +70,7 @@ const validateCard = async (req: Request, res: Response) => {
                 timeout: 30000,
             }
         );
+        console.log(`python server response: ${scanResult}`);
         if (scanResult.data.status == "invalid") throw new AxiosError();
     } catch (error) {
         if (axios.isAxiosError(error)) {

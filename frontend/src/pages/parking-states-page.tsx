@@ -12,14 +12,12 @@ const ParkingStatesPage: FC = () => {
   const [w, setW] = useState<number>();
   const [h, setH] = useState<number>();
   const constantW = useRef<number>(0);
-  const parklock = useRef<boolean>(false);
-  const [entranceGateState, setEntranceGateState] = useState<boolean>(true);
-  const [exitGateState, setExitGateState] = useState<boolean>(true);
   const [slotList, setSlotList] = useState<ParkingSlot[]>(initData);
   const parkingSpaceRef = useRef<HTMLDivElement>(null);
   const firstLineRef = useRef<HTMLDivElement>(null);
   const secondLineRef = useRef<HTMLDivElement>(null);
   const { socket } = useSocket();
+  const currentStateNumber = useRef<number>(0);
 
   useEffect(() => {
     if (parkingSpaceRef.current) {
@@ -91,7 +89,11 @@ const ParkingStatesPage: FC = () => {
       socket?.emit(`user:join`);
     };
 
-    const listenToStateChange = (payload: { parkingStates: ParkingSlot[] }) => {
+    const listenToStateChange = (
+      payload: { parkingStates: ParkingSlot[] },
+      offSet: number
+    ) => {
+      currentStateNumber.current = offSet;
       payload.parkingStates.forEach((slotNewState) => {
         console.log(payload.parkingStates);
         const carElement = document.getElementById(`car${slotNewState.slotId}`);
@@ -117,35 +119,37 @@ const ParkingStatesPage: FC = () => {
       setSlotList(newSlotsState);
     };
 
+    socket?.on("connect", () => {
+      setup();
+      socket.emit("user:join");
+      socket.emit("reconnect:sync", currentStateNumber.current);
+    });
     socket?.on("parking-slot:update", listenToStateChange);
     setup();
     return () => {
       socket?.off(`parking-slot:update`);
+      socket?.off(`connect`);
       socket?.emit(`user:leave`);
     };
   }, []);
 
   const handleCarExit = (slot: number) => {
-    if (!parklock.current) {
-      const newParklist = [...slotList];
-      newParklist[slot - 1].state = SlotStatus.AVAILABLE;
-      setSlotList(newParklist);
+    const newParklist = [...slotList];
+    newParklist[slot - 1].state = SlotStatus.AVAILABLE;
+    setSlotList(newParklist);
 
-      parklock.current = true;
-      const carElement = document.getElementById(`car${slot}`);
+    const carElement = document.getElementById(`car${slot}`);
 
-      if (carElement) {
-        carElement.style.animation = `car-exit-top ${7 - slot}s both`;
-      }
-
-      setTimeout(
-        () => {
-          if (carElement) carElement.remove();
-          parklock.current = false;
-        },
-        Number(`${7 - slot}000`)
-      );
+    if (carElement) {
+      carElement.style.animation = `car-exit-top ${7 - slot}s both`;
     }
+
+    setTimeout(
+      () => {
+        if (carElement) carElement.remove();
+      },
+      Number(`${7 - slot}000`)
+    );
   };
 
   const generateNewCar = (slot: number) => {
@@ -162,12 +166,10 @@ const ParkingStatesPage: FC = () => {
   };
 
   const handleCarEnter = (slot: number) => {
-    if (!document.getElementById(`car${slot}`) && !parklock.current) {
+    if (!document.getElementById(`car${slot}`)) {
       const newParklist = [...slotList];
       newParklist[slot - 1].state = SlotStatus.UNAVAILABLE;
       setSlotList(newParklist);
-
-      parklock.current = true;
 
       generateNewCar(slot);
 
@@ -176,26 +178,11 @@ const ParkingStatesPage: FC = () => {
         const slotWidth = constantW.current / 6;
         carElement.style.right = `${-constantW.current + (7 - slot) * slotWidth - slotWidth / 2 - carElement.offsetWidth / 2}px`;
 
-        carElement.style.animation = `car-park ${7 - slot}s both`;
+        carElement.style.animation = `car-park ${2}s both`;
       }
-
-      setTimeout(
-        () => {
-          parklock.current = false;
-        },
-        Number(`${7 - slot}000`)
-      );
     } else {
       handleCarExit(slot);
     }
-  };
-
-  const handleChangeEntranceGateState = () => {
-    setEntranceGateState((prevState) => !prevState);
-  };
-
-  const handleChangeExitGateState = () => {
-    setExitGateState((prevState) => !prevState);
   };
 
   return (
@@ -206,7 +193,7 @@ const ParkingStatesPage: FC = () => {
             Slot Management Remote
           </div>
           <div className="text-white grid grid-cols-3 gap-3 py-4">
-            {slotList.map((slot) => (
+            {parkingSlotService.sortSlotStates(slotList).map((slot) => (
               <span
                 key={slot.slotId}
                 onClick={() => handleCarEnter(slot.slotId)}
@@ -218,25 +205,6 @@ const ParkingStatesPage: FC = () => {
             ))}
           </div>
           <Separator />
-          <div className="text-white mt-4 text-xl font-bold">Entrance Gate</div>
-          <div className="text-white grid grid-cols-3 gap-3 py-4">
-            <span
-              onClick={() => handleChangeEntranceGateState()}
-              className={`text-center py-4 cursor-pointer ${entranceGateState ? "bg-red-700" : "bg-green-700"}`}
-            >
-              {entranceGateState ? `CLOSE` : `OPEN`}
-            </span>
-          </div>
-          <Separator />
-          <div className="text-white mt-4 text-xl font-bold">Exit Gate</div>
-          <div className="text-white grid grid-cols-3 gap-3 py-4">
-            <span
-              onClick={() => handleChangeExitGateState()}
-              className={`text-center py-4 cursor-pointer ${exitGateState ? "bg-red-700" : "bg-green-700"}`}
-            >
-              {exitGateState ? `CLOSE` : `OPEN`}
-            </span>
-          </div>
         </div>
 
         <div
@@ -277,13 +245,11 @@ const ParkingStatesPage: FC = () => {
             <span className="absolute left-1 top-1 opacity-50 text-base">
               Entrance
             </span>
-            {entranceGateState ? `OPENING` : `BLOCKED`}
           </div>
           <div className="relative w-[200px] h-2/5 border-y-blue-900 border-y-2 border-solid bg-[rgb(43,43,55)] text-white font-extrabold flex justify-center items-center text-lg">
             <span className="absolute left-1 top-1 opacity-50 text-base">
               Exit
             </span>
-            {exitGateState ? `OPENING` : `BLOCKED`}
           </div>
         </div>
       </div>

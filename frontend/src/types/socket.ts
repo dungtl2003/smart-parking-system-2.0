@@ -9,8 +9,12 @@ export interface SocketEmitError {
 export interface ClientEvents {
   "user:join": () => void;
   "user:leave": () => void;
+  "reconnect:sync": (serverOffset: number) => void;
 }
 
 export interface ServerEvents {
-  "parking-slot:update": (payload: { parkingStates: ParkingSlot[] }) => void;
+  "parking-slot:update": (
+    payload: { parkingStates: ParkingSlot[] },
+    offSet: number
+  ) => void;
 }

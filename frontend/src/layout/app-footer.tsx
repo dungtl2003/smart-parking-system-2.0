@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { HTMLAttributes } from "react";
 
-const url = "https://www.facebook.com/huynguyengia1203";
+const githubUrl = "https://github.com/dungtl2003/smart-parking-system-2.0";
 
 interface AppFooterProps extends HTMLAttributes<HTMLElement> {}
 
@@ -29,11 +29,8 @@ const AppFooter: React.FC<AppFooterProps> = ({ className }) => {
         <div className="border-t-slate-300 border-t-2 mt-10 pt-5 flex justify-between items-center">
           <span className="flex items-center space-x-2">
             <span className="font-semibold text-base">Get In Touch</span>
-            <a href={url} target="_blank">
-              <img src="/facebook.webp" alt="fb" className="w-10" />
-            </a>
-            <a href={url} target="_blank">
-              <img src="/tiktok.webp" alt="tiktok" className="w-10" />
+            <a href={githubUrl} target="_blank">
+              <img src="/github.png" alt="github" className="w-10 ml-2" />
             </a>
           </span>
 

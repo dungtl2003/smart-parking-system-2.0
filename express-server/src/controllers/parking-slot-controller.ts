@@ -25,7 +25,6 @@ const initParkingSlots = async (req: Request, res: Response) => {
 
 const updateParkingSlots = async (req: Request, res: Response) => {
     const statesString = req.body.states as string;
-    console.log(statesString, statesString.length);
 
     if (!parkingSlotService.isValidSlotStateStringFormat(statesString)) {
         return res.status(StatusCodes.BAD_REQUEST).json({

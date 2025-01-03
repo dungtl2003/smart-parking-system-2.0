@@ -16,11 +16,7 @@ const ProtectedRoute: React.FC<{
           allowedRoles.find((role) => role === currentUser.role) ? (
             children
           ) : (
-            <Navigate
-              to="/unauthorized"
-              state={{ unstable_useViewTransitionState: true }}
-              replace={true}
-            />
+            <Navigate to="/unauthorized" replace={true} />
           )
         ) : (
           <Navigate

@@ -23,8 +23,12 @@ export interface CardVehicle {
 export interface ClientEvents {
     "user:join": () => void;
     "user:leave": () => void;
+    "reconnect:sync": (latestId: number) => void;
 }
 
 export interface ServerEvents {
-    "parking-slot:update": (payload: {parkingStates: ParkingSlot[]}) => void;
+    "parking-slot:update": (
+        payload: {parkingStates: ParkingSlot[]},
+        offSet: number
+    ) => void;
 }
