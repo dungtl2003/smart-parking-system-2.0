@@ -1,5 +1,6 @@
 import {
   AlertDialog,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -14,6 +15,7 @@ import { toast } from "sonner";
 import { Button } from "../ui/button";
 import { cn } from "@/lib/utils";
 import { LoadingSpinner } from "../effect";
+import { DialogClose } from "../ui/dialog";
 
 interface DeleteCardAlertDialogProps extends HTMLAttributes<HTMLDivElement> {
   onDeleteCard: () => Promise<ActionResult>;
@@ -59,6 +61,8 @@ const DeleteCardAlertDialog: FC<DeleteCardAlertDialogProps> = ({
               </>
             )}
           </Button>
+          {!isSubmitting && <AlertDialogCancel>Cancel</AlertDialogCancel>}
+          <DialogClose />
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

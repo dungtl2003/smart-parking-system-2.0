@@ -35,7 +35,7 @@ const columnHeaders = [
 ];
 
 interface VehicleDialogProps extends HTMLAttributes<HTMLDivElement> {
-  cards: Card[];
+  availableCards: Card[];
   customer: Customer;
   onUpdate: (customer: Customer) => void;
 }
@@ -69,6 +69,8 @@ const ViewVehiclesDialog: React.FC<VehicleDialogProps> = ({
         props.customer.cards
       );
       setVehicles(newVehicles);
+      setSelectedVehicle(createdVehicle);
+
       props.onUpdate(
         userService.updateCustomer(props.customer, {
           vehicles: newVehicles,
@@ -78,14 +80,7 @@ const ViewVehiclesDialog: React.FC<VehicleDialogProps> = ({
       return { status: true, message: "Add vehicle succeed" };
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        if (error.response?.status == HttpStatusCode.Conflict) {
-          return {
-            status: false,
-            message: "Add vehicle failed: licenseplate already in use",
-          };
-        } else if (
-          error.response?.status == HttpStatusCode.UnprocessableEntity
-        ) {
+        if (error.response?.status == HttpStatusCode.UnprocessableEntity) {
           return {
             status: false,
             message: "Add vehicle failed: </br> Run out of cards",
@@ -133,17 +128,10 @@ const ViewVehiclesDialog: React.FC<VehicleDialogProps> = ({
       );
       return { status: true, message: "Update vehicle succeed" };
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        if (error.response?.status == HttpStatusCode.Conflict) {
-          return {
-            status: false,
-            message: "Update vehicle failed: licenseplate already in use",
-          };
-        }
-      }
+      console.log("error: ", error);
       return {
         status: false,
-        message: "Add vehicle failed",
+        message: "Update vehicle failed",
       };
     }
   };
@@ -151,7 +139,6 @@ const ViewVehiclesDialog: React.FC<VehicleDialogProps> = ({
   const handleDeleteVehicle = async (): Promise<ActionResult> => {
     try {
       await vehicleService.apis.deleteVehicle(selectedVehicle!.vehicleId);
-
       const newVehicles = vehicleService.deleteVehicle(
         selectedVehicle!.vehicleId,
         vehicles
@@ -168,10 +155,6 @@ const ViewVehiclesDialog: React.FC<VehicleDialogProps> = ({
         message: "Delete vehicle failed",
       };
     }
-  };
-
-  const handleSelectVehicle = (vehicle: Vehicle) => {
-    setSelectedVehicle(vehicle);
   };
 
   return (
@@ -209,7 +192,7 @@ const ViewVehiclesDialog: React.FC<VehicleDialogProps> = ({
                     selectedVehicle?.vehicleId === vehicle.vehicleId &&
                       "bg-slate-200"
                   )}
-                  onClick={() => handleSelectVehicle(vehicle)}
+                  onClick={() => setSelectedVehicle(vehicle)}
                 >
                   <TableCell className="text-center text-base">
                     {index + 1}
@@ -237,7 +220,7 @@ const ViewVehiclesDialog: React.FC<VehicleDialogProps> = ({
         <div className="flex justify-end gap-2 mt-5">
           <VehicleActionDialog
             vehicle={selectedVehicle}
-            cards={props.cards}
+            cards={props.availableCards}
             type="Add"
             onSave={handleAddVehicle}
           >
@@ -247,7 +230,7 @@ const ViewVehiclesDialog: React.FC<VehicleDialogProps> = ({
             <>
               <VehicleActionDialog
                 vehicle={selectedVehicle}
-                cards={props.cards}
+                cards={props.availableCards}
                 type="Edit"
                 onSave={handleEditVehicle}
               >

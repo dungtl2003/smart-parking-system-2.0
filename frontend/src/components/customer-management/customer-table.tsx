@@ -1,4 +1,4 @@
-import { FC, HTMLAttributes, useState } from "react";
+import { FC, HTMLAttributes, useEffect, useState } from "react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   Table,
@@ -15,10 +15,11 @@ import { cn } from "@/lib/utils";
 import { Separator } from "../ui/separator";
 import { userService } from "@/services";
 
-const columnHeaders = ["", "CUSTOMER", "REGISTERED DATE", "STATUS"];
+const columnHeaders = ["", "CUSTOMER", "EMAIL", "REGISTERED DATE", "STATUS"];
 
 interface CustomerTableProps extends HTMLAttributes<HTMLTableElement> {
   customers: Customer[];
+  defaultSelectedCustomer?: Customer;
   onSelectCustomer?: (customer: Customer) => void;
 }
 
@@ -26,6 +27,10 @@ const CustomerTable: FC<CustomerTableProps> = ({ ...props }) => {
   const [selectedCustomer, setSelectedCustomer] = useState<
     Customer | undefined
   >();
+
+  useEffect(() => {
+    setSelectedCustomer(props.defaultSelectedCustomer);
+  }, [props.defaultSelectedCustomer]);
 
   const handleSelectCustomer = (customer: Customer) => {
     setSelectedCustomer(customer);
@@ -70,6 +75,9 @@ const CustomerTable: FC<CustomerTableProps> = ({ ...props }) => {
                   </TableCell>
                   <TableCell className="text-center text-base">
                     {customer.username}
+                  </TableCell>
+                  <TableCell className="text-center text-base">
+                    {customer.email}
                   </TableCell>
                   <TableCell className="text-center text-base 2xl_text-nowrap">
                     {formatDateTime(`${customer.createdAt}`)}

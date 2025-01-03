@@ -8,14 +8,14 @@ const notBlankString = (validate: ZodString = z.string()) =>
 
 const customerSchema = z.object({
   username: notBlankString(),
-  email: notBlankString(),
+  email: notBlankString(z.string().email()),
 });
 
 const staffSchema = z.object({
   username: notBlankString(),
   password: notBlankString(z.string().min(6)),
   retypepassword: notBlankString(z.string().min(6)),
-  email: notBlankString(),
+  email: notBlankString(z.string().email()),
 });
 
 const cardSchema = z.object({
@@ -25,7 +25,7 @@ const cardSchema = z.object({
 
 const loginSchema = z.object({
   password: z.string().min(6, { message: SchemaResponse.PASSWORD_INVALID }),
-  email: notBlankString(),
+  email: notBlankString(z.string().email()),
 });
 
 export type LoginFormProps = z.infer<typeof loginSchema>;

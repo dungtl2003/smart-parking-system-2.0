@@ -1,5 +1,6 @@
 import {
   AlertDialog,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -59,6 +60,7 @@ const VehicleDeleteAlertDialog: FC<VehicleDeleteAlertDialogProps> = ({
               </>
             )}
           </Button>
+          {!isSubmitting && <AlertDialogCancel>Cancel</AlertDialogCancel>}
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

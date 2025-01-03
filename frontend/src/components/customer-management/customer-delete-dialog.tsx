@@ -1,5 +1,6 @@
 import {
   AlertDialog,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -60,6 +61,7 @@ const CustomerDeleteAlertDialog: FC<CustomerDeleteAlertDialogProps> = ({
               </>
             )}
           </Button>
+          {!isSubmitting && <AlertDialogCancel>Cancel</AlertDialogCancel>}
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

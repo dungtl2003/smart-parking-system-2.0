@@ -48,21 +48,22 @@ const CustomerManagement: FC = () => {
     data: CustomerFormProps
   ): Promise<ActionResult> => {
     try {
-      const updateCustomer = await userService.apis.customer.updateCustomer(
+      const updatedCustomer = await userService.apis.customer.updateCustomer(
         selectedCustomer!.userId,
         data
       );
 
       setCustomers(
-        userService.updateUser(updateCustomer, customers) as Customer[]
+        userService.updateUser(updatedCustomer, customers) as Customer[]
       );
+      setSelectedCustomer(updatedCustomer);
       return { status: true, message: "Update customer succeed" };
     } catch (error) {
       if (axios.isAxiosError(error)) {
         if (error.response?.status == HttpStatusCode.Conflict) {
           return {
             status: false,
-            message: "Update customer failed: email already in use",
+            message: "Update customer failed: <br/>email already in use",
           };
         }
       }
@@ -79,6 +80,7 @@ const CustomerManagement: FC = () => {
     try {
       const newCustomer = await userService.apis.customer.createCustomer(data);
 
+      setSelectedCustomer(newCustomer);
       setCustomers(userService.addUser(newCustomer, customers) as Customer[]);
       return { status: true, message: "Create customer succeed" };
     } catch (error) {
@@ -86,7 +88,7 @@ const CustomerManagement: FC = () => {
         if (error.response?.status == HttpStatusCode.Conflict) {
           return {
             status: false,
-            message: "Add customer failed: email already in use",
+            message: "Add customer failed: <br/>email already in use",
           };
         }
       }
@@ -102,6 +104,7 @@ const CustomerManagement: FC = () => {
       <div className="flex gap-4 mx-auto w-xl">
         <CustomerTable
           customers={customers}
+          defaultSelectedCustomer={selectedCustomer}
           onSelectCustomer={setSelectedCustomer}
           className="flex-1"
         />

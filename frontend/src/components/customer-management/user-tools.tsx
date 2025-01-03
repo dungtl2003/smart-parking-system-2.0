@@ -51,7 +51,7 @@ const CustomerToolBar: FC<UserToolsProps> = ({ ...props }) => {
             </CustomerDeleteAlertDialog>
 
             <ViewVehiclesDialog
-              cards={props.cards}
+              availableCards={props.cards}
               onUpdate={props.onUpdateCustomerAttribute}
               customer={props.selectedCustomer}
             >

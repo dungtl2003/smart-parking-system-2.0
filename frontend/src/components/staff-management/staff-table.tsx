@@ -14,7 +14,7 @@ import { Staff } from "@/types/model";
 import { cn } from "@/lib/utils";
 import { Separator } from "../ui/separator";
 
-const columnHeaders = ["", "STAFF", "REGISTERED DATE"];
+const columnHeaders = ["", "STAFF", "EMAIL", "REGISTERED DATE"];
 
 interface StaffTableProps extends HTMLAttributes<HTMLTableElement> {
   staffs: Staff[];
@@ -66,6 +66,9 @@ const StaffTable: FC<StaffTableProps> = ({ ...props }) => {
                   </TableCell>
                   <TableCell className="text-center text-base">
                     {staff.username}
+                  </TableCell>
+                  <TableCell className="text-center text-base">
+                    {staff.email}
                   </TableCell>
                   <TableCell className="text-center text-base 2xl_text-nowrap">
                     {formatDateTime(`${staff.createdAt}`)}

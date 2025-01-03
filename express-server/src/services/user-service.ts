@@ -193,7 +193,7 @@ const insertUser = async (
     validPayload: UserSignup,
     role: UserRole
 ): Promise<UserDTO> => {
-    const duplicatedUserAccount = await getUserByEmail(validPayload.username);
+    const duplicatedUserAccount = await getUserByEmail(validPayload.email);
 
     if (duplicatedUserAccount)
         throw new UserAlreadyExistError(ResponseMessage.USER_ALREADY_EXISTS);
@@ -213,6 +213,8 @@ const insertUser = async (
             email: true,
             role: true,
             createdAt: true,
+            cards: true,
+            vehicles: true,
         },
     });
     return user;
@@ -223,11 +225,9 @@ const updateUser = async (
     validPayload: UserUpdate
 ): Promise<UserDTO> => {
     if (validPayload.email) {
-        const userHolder: User | null = await getUserByEmail(
-            validPayload.email
-        );
+        const duplicatedUser = await getUserByEmail(validPayload.email);
 
-        if (userHolder && userHolder.userId !== userId)
+        if (duplicatedUser && duplicatedUser.userId !== userId)
             throw new UserAlreadyExistError(
                 ResponseMessage.USER_ALREADY_EXISTS
             );
@@ -239,6 +239,7 @@ const updateUser = async (
         },
         data: {
             username: validPayload.username,
+            email: validPayload.email,
         },
         select: {
             userId: true,
