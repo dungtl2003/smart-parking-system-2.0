@@ -5,7 +5,8 @@ import { useState } from "react";
 import { SlotStatus } from "@/types/enum";
 import useSocket from "@/hooks/use-socket";
 import { FC, useEffect, useRef } from "react";
-import { Separator } from "@/components/ui/separator";
+import { useCurrentUser } from "@/hooks";
+import { userService } from "@/services";
 
 const ParkingStatesPage: FC = () => {
   const initData = useRouteLoaderData("parking-status") as ParkingSlot[];
@@ -18,6 +19,7 @@ const ParkingStatesPage: FC = () => {
   const secondLineRef = useRef<HTMLDivElement>(null);
   const { socket } = useSocket();
   const currentStateNumber = useRef<number>(0);
+  const { currentUser } = useCurrentUser();
 
   useEffect(() => {
     if (parkingSpaceRef.current) {
@@ -188,24 +190,25 @@ const ParkingStatesPage: FC = () => {
   return (
     <div className="w-full overflow-hidden">
       <div className="w-full h-full flex items-center justify-center gap-10 mt-2 pb-20">
-        <div className="bg-[rgb(45,42,42)] w-[20rem] px-4">
-          <div className="text-white mt-4 text-xl font-bold">
-            Slot Management Remote
+        {currentUser && userService.isAuthorize(currentUser) && (
+          <div className="bg-[rgb(45,42,42)] w-[20rem] px-4">
+            <div className="text-white mt-4 text-xl font-bold">
+              Slot Management Remote
+            </div>
+            <div className="text-white grid grid-cols-3 gap-3 py-4">
+              {parkingSlotService.sortSlotStates(slotList).map((slot) => (
+                <span
+                  key={slot.slotId}
+                  onClick={() => handleCarEnter(slot.slotId)}
+                  id={`slot${slot.slotId}`}
+                  className={`py-4 text-center cursor-pointer ${slot.state == SlotStatus.UNAVAILABLE ? "bg-red-700" : "bg-green-700"}`}
+                >
+                  {slot.slotId}
+                </span>
+              ))}
+            </div>
           </div>
-          <div className="text-white grid grid-cols-3 gap-3 py-4">
-            {parkingSlotService.sortSlotStates(slotList).map((slot) => (
-              <span
-                key={slot.slotId}
-                onClick={() => handleCarEnter(slot.slotId)}
-                id={`slot${slot.slotId}`}
-                className={`py-4 text-center cursor-pointer ${slot.state == SlotStatus.UNAVAILABLE ? "bg-red-700" : "bg-green-700"}`}
-              >
-                {slot.slotId}
-              </span>
-            ))}
-          </div>
-          <Separator />
-        </div>
+        )}
 
         <div
           ref={parkingSpaceRef}

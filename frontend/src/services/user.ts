@@ -3,6 +3,7 @@ import { axiosInstance } from "@/config/axios-config";
 import { Card, Customer, Staff, User, Vehicle } from "@/types/model";
 import { CustomerFormProps, StaffFormProps } from "@/utils/schema";
 import { Args } from "@/utils/helpers";
+import { Role } from "@/types/enum";
 
 const userEndPoint = "/users";
 const customerEndPoint = "/customers";
@@ -120,6 +121,9 @@ const userService = {
   },
   isActive: (customer: Customer) => {
     return customer.vehicles && customer.vehicles.length > 0;
+  },
+  isAuthorize: (user: User) => {
+    return [Role.ADMIN, Role.STAFF].includes(user.role);
   },
 };
 

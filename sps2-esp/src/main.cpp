@@ -5,7 +5,7 @@
 #include <WiFiClient.h>
 #include <ArduinoJson.h>
 
-#define EXPRESS_SERVER "http://192.168.22.146:4000"
+#define EXPRESS_SERVER "http://192.168.22.146:4000" //change to the ip of Expressjs server
 
 ESP8266WiFiMulti WiFiMulti;
 bool readyToRequest;
@@ -26,7 +26,7 @@ void setup() {
   }
 
   WiFi.mode(WIFI_STA);
-  WiFiMulti.addAP("Trung Tam TT-TV", "12345679");
+  WiFiMulti.addAP("Trung Tam TT-TV", "12345679"); // must use the same wifi as Expressjs server
 }
 
 String urlencode(const String &str) {

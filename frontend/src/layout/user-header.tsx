@@ -38,7 +38,7 @@ const UserHeader: FC<HTMLAttributes<HTMLHeadElement>> = ({ ...props }) => {
     >
       {/** WEBSITE LOGO */}
       <NavLink to="/" unstable_viewTransition>
-        <img src="/logokma.png" alt="logo" className="h-14" />
+        <img src="/logo-web.png" alt="logo" className="h-14" />
       </NavLink>
 
       <span className="flex items-center gap-5">

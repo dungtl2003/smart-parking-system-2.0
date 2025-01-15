@@ -15,15 +15,16 @@ BE server for [Smart parking system website](./templates/.env.template). This pr
 
 ## ⇁ List of environment variables
 
-| Variable      | Required | Purpose                                                                                      |
-| ------------- | -------- | -------------------------------------------------------------------------------------------- |
-| DATABASE_URL  | YES      | your choosen database url                                                                    |
-| AT_SECRET_KEY | YES      | use to generate, verify accesstoken                                                          |
-| RT_SECRET_KEY | YES      | use to generate, verify refreshtoken                                                         |
-| PORT          | NO       | port to run project, it is set to `8000` by default                                          |
-| NODE_ENV      | NO       | environment, can take value of `development` or `production`, default value is `development` |
-| CLIENT_DOMAIN | NO       | client domain, need to specify to pass CORS                                                  |
-| CLIENT_PORT   | NO       | client port, like `CLIENT_DOMAIN` but used to develop in local                               |
+| Variable          | Required | Purpose                                                                                      |
+| ----------------- | -------- | -------------------------------------------------------------------------------------------- |
+| DATABASE_URL      | YES      | your choosen database url                                                                    |
+| AT_SECRET_KEY     | YES      | use to generate, verify accesstoken                                                          |
+| RT_SECRET_KEY     | YES      | use to generate, verify refreshtoken                                                         |
+| PORT              | NO       | port to run project, it is set to `8000` by default                                          |
+| NODE_ENV          | NO       | environment, can take value of `development` or `production`, default value is `development` |
+| CLIENT_DOMAIN     | NO       | client domain, need to specify to pass CORS                                                  |
+| CLIENT_PORT       | NO       | client port, like `CLIENT_DOMAIN` but used to develop in local                               |
+| CAMERA_SERVER_API | YES      | server that connects with camera to detect license plate                                     |
 
 For the full .env file example, check
 out [this template](./templates/.env.template) <br>
