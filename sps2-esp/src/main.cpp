@@ -46,6 +46,10 @@ String urlencode(const String &str) {
 }
 
 void requestForCarEntering (String value) {
+  // test only
+  Serial.println("CHECKING-RESULT:1");
+  return;
+
   http.setTimeout(30000);
   String url = carEnteringUrl + urlencode(value);
 
@@ -107,6 +111,10 @@ void requestToUpdateParkingState (String value) {
 }
 
 void pingToExpressServer () {
+  // test only
+  readyToRequest = true;
+  return;
+
   http.setTimeout(2000);
   if (http.begin(client, healthCheckUrl)) {
     Serial.println("[HTTP] GET: " + healthCheckUrl);

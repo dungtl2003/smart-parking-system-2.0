@@ -10,10 +10,11 @@ let clientPort = process.env[`CLIENT_PORT_${counter}`];
 while (clientDomain || clientPort) {
     clientDomain && whiteList.push(clientDomain);
     clientPort && whiteList.push(`${localhost}:${clientPort}`);
-
     ++counter;
     clientDomain = process.env[`CLIENT_DOMAIN_${counter}`];
     clientPort = process.env[`CLIENT_PORT_${counter}`];
+    console.log("client domain: " + clientDomain);
+    console.log("client port: " + clientPort);
 }
 
 export const options: CorsOptions = {
