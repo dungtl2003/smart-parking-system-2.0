@@ -5,7 +5,7 @@
 #include <WiFiClient.h>
 #include <ArduinoJson.h>
 
-#define EXPRESS_SERVER "http://192.168.22.146:4000" //change to the ip of Expressjs server
+#define EXPRESS_SERVER "http://192.168.43.116:4000" //change to the ip of Expressjs server
 
 ESP8266WiFiMulti WiFiMulti;
 bool readyToRequest;
@@ -26,7 +26,7 @@ void setup() {
   }
 
   WiFi.mode(WIFI_STA);
-  WiFiMulti.addAP("Trung Tam TT-TV", "12345679"); // must use the same wifi as Expressjs server
+  WiFiMulti.addAP("AndroidAP", "12345679"); // must use the same wifi as Expressjs server
 }
 
 String urlencode(const String &str) {
@@ -46,10 +46,6 @@ String urlencode(const String &str) {
 }
 
 void requestForCarEntering (String value) {
-  // test only
-  Serial.println("CHECKING-RESULT:1");
-  return;
-
   http.setTimeout(30000);
   String url = carEnteringUrl + urlencode(value);
 
@@ -111,10 +107,6 @@ void requestToUpdateParkingState (String value) {
 }
 
 void pingToExpressServer () {
-  // test only
-  readyToRequest = true;
-  return;
-
   http.setTimeout(2000);
   if (http.begin(client, healthCheckUrl)) {
     Serial.println("[HTTP] GET: " + healthCheckUrl);

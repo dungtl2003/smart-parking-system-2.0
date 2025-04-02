@@ -70,8 +70,8 @@ SemaphoreHandle_t exitGateStateMutex;
 unsigned char** validUIDs = new unsigned char*[6];
 
 TaskHandle_t parkingSlotStatesChangeHandler = NULL;
-TaskHandle_t renderHanlder = NULL;
-TaskHandle_t readSerialCommandFromESPHandler = NULL;
+TaskHandle_t renderHandler = NULL;
+TaskHandle_t consumeESPCommandHandler = NULL;
 
 void printCardToSerial (int index) {
   String result = "";
@@ -169,36 +169,38 @@ void updateExitGateStatus(int &exitSwitchLastState, bool &exitMode, bool &isExit
   }
 }
 
-void readSerialCommandFromESP (void *pvParameters) { // related global variables: username, loopCounter, isValidCardDetected
-  readSerialCommandFromESPHandler = xTaskGetCurrentTaskHandle();
+void consumeESPCommand (void *pvParameters) { 
+  consumeESPCommandHandler = xTaskGetCurrentTaskHandle();
 
   while(1) {
     // Serial.println(1);
-    String input = Serial.readStringUntil('\n');
-    int separatorIndex = input.indexOf(':');
+    if(Serial.available() > 0) {
+      String input = Serial.readStringUntil('\n');
+      int separatorIndex = input.indexOf(':');
 
-    if (separatorIndex != -1) {
-      String label = input.substring(0, separatorIndex);
-      String value = input.substring(separatorIndex + 1);
-      value.trim();
+      if (separatorIndex != -1) {
+        String label = input.substring(0, separatorIndex);
+        String value = input.substring(separatorIndex + 1);
+        value.trim();
 
-      if(label.equals("USER") && xSemaphoreTake(usernameMutex, 0)) {
-        username = value;
-        xSemaphoreGive(usernameMutex);
-      } 
-      if(label.equals("CHECKING-RESULT")){
-        if(xSemaphoreTake(scannedCardStateMutex, portMAX_DELAY)){
-          xTaskNotifyGive(renderHanlder);
-          display.clearScreen();
-          if(value.equals("1") || value.equals("0")){
-            scannedCardState = value.toInt();
-          } else {
-            scannedCardState = UNDETECTED;
+        if(label.equals("USER") && xSemaphoreTake(usernameMutex, 0)) {
+          username = value;
+
+          xSemaphoreGive(usernameMutex);
+        } 
+        if(label.equals("CHECKING-RESULT")){
+          if(xSemaphoreTake(scannedCardStateMutex, portMAX_DELAY)){
+            xTaskNotifyGive(renderHandler);
+            if(value.equals("1") || value.equals("0")){
+              scannedCardState = value.toInt();
+            } else {
+              scannedCardState = UNDETECTED;
+            }
+
+            xSemaphoreGive(scannedCardStateMutex);
           }
-
-          xSemaphoreGive(scannedCardStateMutex);
-        }
-      }  
+        }  
+      }
     }
 
     if (ulTaskNotifyTake(pdTRUE, 0)) {
@@ -213,7 +215,7 @@ void readSerialCommandFromESP (void *pvParameters) { // related global variables
   }
 }
 
-void readSensor(void *pvParameters) { // related global variables: slotStates, hasChangeState, slotsLeft, isDetected, isSending
+void readSensor(void *pvParameters) {
   int entrySwitchLastState = digitalRead(ENTRY_BTN_PIN);
   int exitSwitchLastState = digitalRead(EXIT_BTN_PIN);
   bool entryMode = false;
@@ -228,7 +230,7 @@ void readSensor(void *pvParameters) { // related global variables: slotStates, h
     int sensorValue;
     int prevSlotStateCounter = 0;
 
-    // read parkinglot states
+    // read parkinglot sensors
     if(xSemaphoreTake(slotStateMutex, portMAX_DELAY)){
       for (int i = 0; i < 6; i++) {
         sensorValue = infraredSensor.isParkingSensorDetected(i) ? 1 : 0;
@@ -247,7 +249,7 @@ void readSensor(void *pvParameters) { // related global variables: slotStates, h
       xTaskNotifyGive(parkingSlotStatesChangeHandler);
     }
     
-    // read sensor states around gates
+    // read sensor around gates
     isEntryFrontSensorDetected = infraredSensor.isEntryFrontSensorDetected();
     isEntryBackSensorDetected = infraredSensor.isEntryBackSensorDetected();
     isExitFrontSensorDetected = infraredSensor.isExitFrontSensorDetected();
@@ -273,30 +275,37 @@ void readSensor(void *pvParameters) { // related global variables: slotStates, h
   }
 }
 
-void render(void *pvParameters) { // related global variables: loopCounter, username, isValidCardDetected
+void render(void *pvParameters) {
   int loopCounter = LCD_LOOP_COUNTER;
-  renderHanlder = xTaskGetCurrentTaskHandle();
+  renderHandler = xTaskGetCurrentTaskHandle();
 
   while(1){
     // Serial.println("3");
     if (ulTaskNotifyTake(pdTRUE, 0)) {
+      // start countdown
       loopCounter--;
+      display.clearScreen();
     }
 
-    if(loopCounter == 0){ //clear LCD after display scanning result for a while
-      display.clearScreen();
+    if(loopCounter == 0){
+      // clear LCD after display scanning result for a while
       loopCounter = LCD_LOOP_COUNTER;
-      xTaskNotifyGive(readSerialCommandFromESPHandler);
+      display.clearScreen();
+      xTaskNotifyGive(consumeESPCommandHandler);
+      taskYIELD();
     }
 
     if(xSemaphoreTake(scannedCardStateMutex, 0)){
+      // clear screen if receive card chechking result
       if((loopCounter == LCD_LOOP_COUNTER - 1) && scannedCardState != UNDETECTED){
         display.clearScreen();
       }
+
       xSemaphoreGive(scannedCardStateMutex);
     }
 
     if(xSemaphoreTake(scannedCardStateMutex, portMAX_DELAY)){
+      // render main logic
       if(scannedCardState == VALID_CARD){
         if(xSemaphoreTake(usernameMutex, 0)){
           display.printString("Hi " + username + " !");
@@ -310,7 +319,7 @@ void render(void *pvParameters) { // related global variables: loopCounter, user
         display.printString("Scan...");
 
         xSemaphoreGive(scannedCardStateMutex);
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(100));
         continue;
       } else {
         if(xSemaphoreTake(slotStateMutex, portMAX_DELAY)){
@@ -387,12 +396,12 @@ void handleParkinglotStatesChanges (void *pvParameters) {
 }
 
 void setup() {
+  Serial.begin(9600);
+
   pinMode(ENTRY_BTN_PIN, INPUT_PULLUP);
   pinMode(EXIT_BTN_PIN, INPUT_PULLUP);
   pinMode(LIGHT_SENSOR_PIN, INPUT);
   pinMode(LED_PIN, OUTPUT);
-
-  Serial.begin(9600);
 
   // Allocate memory for each row and populate the array
   validUIDs[0] = new unsigned char[4]{ 0x6D, 0xE2, 0xD7, 0x21 };  // Thẻ 1
@@ -414,9 +423,9 @@ void setup() {
   scannedCardStateMutex = xSemaphoreCreateMutex();
   usernameMutex = xSemaphoreCreateMutex();
 
-  xTaskCreate(readSerialCommandFromESP, "Task1", 300, NULL, 1, NULL);
+  xTaskCreate(consumeESPCommand, "Task1", 300, NULL, 1, NULL);
   xTaskCreate(readSensor, "Task2", 300, NULL, 1, NULL);
-  xTaskCreate(render, "Task3", 300, NULL, 1, &renderHanlder);
+  xTaskCreate(render, "Task3", 300, NULL, 1, &renderHandler);
   xTaskCreate(controlHardware, "Task4", 300, NULL, 1, NULL);
   xTaskCreate(handleParkinglotStatesChanges, "Task5", 300, NULL, 2, &parkingSlotStatesChangeHandler);
 

@@ -51,6 +51,12 @@ you can run the development server in local by this command:
 npm run dev
 ```
 
+ngrok:
+
+```shell
+ngrok http --url=https://deciding-present-cattle.ngrok-free.app 4000
+```
+
 you can test app in production environment by running:
 
 ```shell
