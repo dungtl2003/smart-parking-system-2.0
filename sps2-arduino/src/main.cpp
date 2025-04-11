@@ -228,7 +228,7 @@ void consumeESPCommand (void *pvParameters) {
   }
 }
 
-void readSensor(void *pvParameters) {
+void readSignal(void *pvParameters) {
   int slotStates = 0;
   int gateState = 0;
   int lightState = 0;
@@ -242,7 +242,7 @@ void readSensor(void *pvParameters) {
     }
     int result = xQueueOverwrite(slotStateQueue, &slotStates);
     if(result == errQUEUE_FULL){
-      Serial.println("[readSensor] Fail to overwrite slotStateQueue");
+      Serial.println("[readSignal] Fail to overwrite slotStateQueue");
     }
 
     // unsigned long time_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
@@ -258,14 +258,14 @@ void readSensor(void *pvParameters) {
     appendBit(gateState, digitalRead(EXIT_BTN_PIN));
     result = xQueueOverwrite(gateStateQueue, &gateState);
     if(result == errQUEUE_FULL){
-      Serial.println("[readSensor] Fail to overwrite gateStateQueue");
+      Serial.println("[readSignal] Fail to overwrite gateStateQueue");
     }
 
     //read light sensor
     lightState = digitalRead(LIGHT_SENSOR_PIN);
     result = xQueueOverwrite(lightStateQueue, &lightState);
     if(result == errQUEUE_FULL){
-      Serial.println("[readSensor] Fail to overwrite lightStateQueue");
+      Serial.println("[readSignal] Fail to overwrite lightStateQueue");
     }
   }
 }
@@ -343,7 +343,22 @@ void render(void *pvParameters) {
   }
 }
 
-void controlHardware(void *pvParameters) {
+void controlLight(void *pvParameters) {
+  int lightState = 0;
+
+  while(1) {
+    // Serial.println("4");
+    xQueuePeek(lightStateQueue, &lightState, 0);
+
+    if (lightState == HIGH) {
+      digitalWrite(LED_PIN, HIGH);
+    } else {
+      digitalWrite(LED_PIN, LOW);
+    }
+  }
+}
+
+void controlGate(void *pvParameters) {
   int entrySwitchLastState = 0;
   int exitSwitchLastState = 0;
   bool entryMode = false;
@@ -352,19 +367,11 @@ void controlHardware(void *pvParameters) {
   bool currentExitGateStatus = 0;
   int gateState = 0;
   int slotState = 0;
-  int lightState = 0;
 
   while(1) {
     // Serial.println("4");
     xQueuePeek(gateStateQueue, &gateState, 0);
     xQueuePeek(slotStateQueue, &slotState, 0);
-    xQueuePeek(lightStateQueue, &lightState, 0);
-
-    if (lightState == HIGH) {
-      digitalWrite(LED_PIN, HIGH);
-    } else {
-      digitalWrite(LED_PIN, LOW);
-    }
 
     // update gate status
     updateEntryGateStatus(entrySwitchLastState, entryMode, currentEntryGateStatus, 
@@ -484,13 +491,14 @@ void setup() {
   cardSignalQueue = xQueueCreate(1, sizeof(int));
 
   xTaskCreate(consumeESPCommand, "Task1", 300, NULL, 1, NULL);
-  xTaskCreate(readSensor, "Task2", 300, NULL, 1, NULL);
+  xTaskCreate(readSignal, "Task2", 300, NULL, 1, NULL);
   xTaskCreate(readRFID, "Task3", 300, NULL, 1, NULL);
   xTaskCreate(render, "Task4", 300, NULL, 1, &renderTaskHandle);
-  xTaskCreate(controlHardware, "Task5", 300, NULL, 1, NULL);
-  xTaskCreate(detectParkingStatesChanges, "Task6", 300, NULL, 1, NULL);
-  xTaskCreate(produceESPCommand, "Task7", 300, NULL, 1, NULL);
-  xTaskCreate(sensorRFIDFusion, "Task8", 300, NULL, 1, NULL);
+  xTaskCreate(controlLight, "Task5", 300, NULL, 1, NULL);
+  xTaskCreate(controlGate, "Task6", 300, NULL, 1, NULL);
+  xTaskCreate(detectParkingStatesChanges, "Task7", 300, NULL, 1, NULL);
+  xTaskCreate(produceESPCommand, "Task8", 300, NULL, 1, NULL);
+  xTaskCreate(sensorRFIDFusion, "Task9", 300, NULL, 1, NULL);
 
   vTaskStartScheduler();
 }

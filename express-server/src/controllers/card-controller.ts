@@ -65,6 +65,7 @@ const validateCard = async (req: Request, res: Response) => {
             config.CAMERA_SERVER_API + `?timeout=5000`,
             {
                 plate_number: vehicle.licensePlate,
+                gate_pos: "L" | "R",
             },
             {
                 timeout: 30000,
