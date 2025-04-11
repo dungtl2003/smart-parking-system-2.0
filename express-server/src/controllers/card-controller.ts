@@ -53,40 +53,46 @@ const deleteCard = async (req: Request, res: Response) => {
 
 const validateCard = async (req: Request, res: Response) => {
     let cardId = req.query.cardId as string;
-    if (cardId) {
+    let gatePos = req.query.gatePos as string;
+    if (cardId || gatePos) {
         console.log("incoming cardID: ", cardId);
         cardId = cardId.trim();
+        console.log("incoming gatePos: ", gatePos);
+        gatePos = gatePos.trim();
     }
     const vehicle = await cardService.getCardLinkedToVehicle(cardId);
     console.log("Get vehicle from DB: ", vehicle);
-
-    try {
-        const scanResult = await axios.post<{status: "valid" | "invalid"}>(
-            config.CAMERA_SERVER_API + `?timeout=5000`,
-            {
-                plate_number: vehicle.licensePlate,
-                gate_pos: "L" | "R",
-            },
-            {
-                timeout: 30000,
-            }
-        );
-        console.log(`python server response: ${scanResult}`);
-        if (scanResult.data.status == "invalid") throw new AxiosError();
-    } catch (error) {
-        if (axios.isAxiosError(error)) {
-            return res.status(StatusCodes.UNPROCESSABLE_ENTITY).json({
-                message: "Failed to validate car license plate",
-            });
-        } else {
-            throw new Error("Unexpected error: " + error);
-        }
-    }
-
     return res.status(StatusCodes.OK).json({
         message: ResponseMessage.SUCCESS,
-        info: vehicle.username,
+        info: "Huy",
     });
+    // try {
+    //     const scanResult = await axios.post<{status: "valid" | "invalid"}>(
+    //         config.CAMERA_SERVER_API + `?timeout=5000`,
+    //         {
+    //             plate_number: vehicle.licensePlate,
+    //             gate_pos: gatePos,
+    //         },
+    //         {
+    //             timeout: 30000,
+    //         }
+    //     );
+    //     console.log(`python server response: ${scanResult}`);
+    //     if (scanResult.data.status == "invalid") throw new AxiosError();
+    // } catch (error) {
+    //     if (axios.isAxiosError(error)) {
+    //         return res.status(StatusCodes.UNPROCESSABLE_ENTITY).json({
+    //             message: "Failed to validate car license plate",
+    //         });
+    //     } else {
+    //         throw new Error("Unexpected error: " + error);
+    //     }
+    // }
+
+    // return res.status(StatusCodes.OK).json({
+    //     message: ResponseMessage.SUCCESS,
+    //     info: vehicle.username,
+    // });
 };
 
 export default {

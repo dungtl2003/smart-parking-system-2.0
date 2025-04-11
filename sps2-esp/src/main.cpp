@@ -5,7 +5,7 @@
 #include <WiFiClient.h>
 #include <ArduinoJson.h>
 
-#define EXPRESS_SERVER "http://192.168.43.116:4000" //change to the ip of Expressjs server
+#define EXPRESS_SERVER "http://192.168.22.103:4000" //change to the ip of Expressjs server
 
 ESP8266WiFiMulti WiFiMulti;
 bool readyToRequest;
@@ -25,11 +25,11 @@ void setup() {
     delay(1000);
   }
 
-  // WiFi.mode(WIFI_STA);
-  // WiFiMulti.addAP("AndroidAP", "12345679"); // must use the same wifi as Expressjs server
+  WiFi.mode(WIFI_STA);
+  WiFiMulti.addAP("Trung Tam TT-TV", "12345679"); // must use the same wifi as Expressjs server
 }
 
-String urlencode(const String &str) {
+String encodeQueryParam(const String &str) {
     String encoded = "";
     for (int i = 0; i < str.length(); i++) {
         char c = str[i];
@@ -45,12 +45,14 @@ String urlencode(const String &str) {
     return encoded;
 }
 
-void requestForCarEntering (String value) {
-  Serial.println("USER:Huy\nCHECKING-RESULT:1");
-  return;
+void requestToCheckCard (String cardId, String pos) {
+  //test
+  // Serial.println("USER:Huy\nCHECKING-RESULT:1");
+  // return;
 
   http.setTimeout(30000);
-  String url = carEnteringUrl + urlencode(value);
+  String url = carEnteringUrl + encodeQueryParam(cardId) 
+              + "&gatePos=" + encodeQueryParam(pos);
 
   if (!http.begin(client, url)) {
     readyToRequest = false;
@@ -62,6 +64,7 @@ void requestForCarEntering (String value) {
   int httpCode = http.GET();
 
   if (httpCode > 0) {
+    String checkingResult = "CHECKING-RESULT:";
     if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
       String payload = http.getString();
       StaticJsonDocument<200> doc;
@@ -73,12 +76,12 @@ void requestForCarEntering (String value) {
       }
 
       String info = doc["info"].as<String>();
-
       Serial.println("USER:" + info);
-      Serial.println("CHECKING-RESULT:1");
+      checkingResult += (pos == "R" ? 1 : 4);
     } else {
-      Serial.println("CHECKING-RESULT:0");
+      checkingResult += (pos == "R" ? 0 : 3);
     }
+    Serial.println(checkingResult);
   } else {
     readyToRequest = false;
     Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
@@ -88,8 +91,8 @@ void requestForCarEntering (String value) {
 }
 
 void requestToUpdateParkingState (String value) {
-  return;
   //test
+  // return;
 
   http.setTimeout(30000);
   if (http.begin(client, updateParkingSlotUrl)) {
@@ -113,9 +116,9 @@ void requestToUpdateParkingState (String value) {
 }
 
 void pingToExpressServer () {
-  readyToRequest = true;
-  return;
   //test
+  // readyToRequest = true;
+  // return;
 
   http.setTimeout(2000);
   if (http.begin(client, healthCheckUrl)) {
@@ -141,27 +144,36 @@ void pingToExpressServer () {
 }
 
 void loop() {
-  // if ((WiFiMulti.run() == WL_CONNECTED)) { // wifi is ready
-    if(readyToRequest){ // express server is ready
-      if((Serial.available() > 0)){ //Serial is ready
-        String input = Serial.readStringUntil('\n');
-        int separatorIndex = input.indexOf(':');
+  if ((WiFiMulti.run() != WL_CONNECTED)) { // wifi is ready
+    return;
+  }
 
-        if (separatorIndex != -1) {
-          String label = input.substring(0, separatorIndex);
-          String value = input.substring(separatorIndex + 1);
+  if(!readyToRequest){ // express server is ready
+    pingToExpressServer();
+    delay(1000);
+    return;
+  }
 
-          if(label == "CARD"){
-            requestForCarEntering(value);
-          } else if(label == "STATE") {
-            value.trim();
-            requestToUpdateParkingState(value);
-          }
-        }  
-      }
-    } else {
-      pingToExpressServer();
-      delay(1000);
+  if((Serial.available() <= 0)){ //Serial is ready
+    return;
+  }
+
+  String input = Serial.readStringUntil('\n');
+  int separatorIndex = input.indexOf(':');
+
+  if (separatorIndex != -1) {
+    String label = input.substring(0, separatorIndex);
+    String value = input.substring(separatorIndex + 1);
+
+    if(label == "CARD"){
+      separatorIndex = value.indexOf(':');
+      String gatePos = value.substring(0, separatorIndex);
+      String cardId = value.substring(separatorIndex + 1);
+
+      requestToCheckCard(cardId, gatePos);
+    } else if(label == "STATE") {
+      value.trim();
+      requestToUpdateParkingState(value);
     }
-  // }
+  }  
 }
