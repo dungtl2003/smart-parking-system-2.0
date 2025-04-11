@@ -37,13 +37,18 @@
 #define EXIT_BTN_PIN 10 //Button 1
 
 #define LCD_ADDR 0x27
-#define LCD_FPS 45
-#define LCD_LOOP_COUNTER 100
+#define LCD_FPS 60
 
 #define LED_PIN 7
 #define LIGHT_SENSOR_PIN 6
 
 #define TOTAL_SLOTS 6
+#define TOTAL_SLOTS_BITS_TO_INT 63
+
+#define configTICK_RATE_HZ 1000
+#define MS_PER_TICK (1000 / configTICK_RATE_HZ)
+
+unsigned char** validUIDs = new unsigned char*[6];
 
 SPS_InfraredSensor infraredSensor(IR_CAR_1, IR_CAR_2, IR_CAR_3, IR_CAR_4, IR_CAR_5, IR_CAR_6, IR_ENTRY_FRONT, IR_ENTRY_BACK, IR_EXIT_FRONT, IR_EXIT_BACK);
 SPS_Display display(LCD_ADDR, LCD_FPS);
@@ -51,27 +56,34 @@ SPS_Gate entryGate(SERVO_ENTER_PIN, SERVO_DELAY_MS);
 SPS_Gate exitGate(SERVO_EXIT_PIN, SERVO_DELAY_MS);
 SPS_RFID_Scanner entryScanner(RFID_ENTER_SS_PIN, RFID_ENTER_RST_PIN);
 
-int slotStates[TOTAL_SLOTS];
-bool hasSlot = true;
-SemaphoreHandle_t slotStateMutex;
+QueueHandle_t slotStateQueue;
 
-int scannedCardState = UNDETECTED; 
-SemaphoreHandle_t scannedCardStateMutex;
+QueueHandle_t slotSignalQueue;
 
-String username;
-SemaphoreHandle_t usernameMutex;
+QueueHandle_t usernameQueue;
 
-bool currentEntryGateStatus;
-SemaphoreHandle_t entryGateStateMutex;
+QueueHandle_t scannedCardStateQueue;
 
-bool currentExitGateStatus;
-SemaphoreHandle_t exitGateStateMutex;
+QueueHandle_t gateStateQueue;
 
-unsigned char** validUIDs = new unsigned char*[6];
+QueueHandle_t validCardDetectedQueue;
 
-TaskHandle_t parkingSlotStatesChangeHandler = NULL;
-TaskHandle_t renderHandler = NULL;
-TaskHandle_t consumeESPCommandHandler = NULL;
+QueueHandle_t lightStateQueue;
+
+QueueHandle_t cardInfoQueue;
+
+QueueHandle_t cardSignalQueue;
+
+TaskHandle_t renderTaskHandle = NULL;
+
+int getBitAt (int slots, int index){
+  //Index start from right to left
+  return (slots >> index) & 1;
+}
+
+void appendBit (int &slots, int value){
+  slots = (slots << 1) + value;
+}
 
 void printCardToSerial (int index) {
   String result = "";
@@ -91,18 +103,28 @@ void printCardToSerial (int index) {
   Serial.println("CARD:" + result);
 }
 
-void updateEntryGateStatus(int &entrySwitchLastState, bool &entryMode, bool &isEntryFrontSensorDetected, bool &isEntryBackSensorDetected) {
-  int newState = digitalRead(ENTRY_BTN_PIN);
-  if(newState != entrySwitchLastState){ // manual mode
+void printParkingStatesToSerial (int slotStates) {
+  String message = "STATE:";
+  for (int i = TOTAL_SLOTS - 1; i >= 0; i--) {
+    message += String(getBitAt(slotStates, i));
+    if (i > 0) {
+      message += ","; 
+    }
+  }
+  Serial.println(message);
+}
+
+void updateEntryGateStatus(int &entrySwitchLastState, bool &entryMode, bool &currentEntryGateStatus, 
+                            bool isEntryFrontSensorDetected, bool isEntryBackSensorDetected, 
+                            bool hasSlot, int newEntrySwitchState) {
+  if(newEntrySwitchState != entrySwitchLastState){ // manual mode
     //update related variables
-    entrySwitchLastState = newState;
+    entrySwitchLastState = newEntrySwitchState;
     entryMode = !entryMode;
 
     //handle mode change event
-    if(entryMode && xSemaphoreTake(entryGateStateMutex, portMAX_DELAY)) {
+    if(entryMode) {
       currentEntryGateStatus = (currentEntryGateStatus == OPEN) ? CLOSE : OPEN;
-      
-      xSemaphoreGive(entryGateStateMutex);
     }
     return;
   }
@@ -110,41 +132,34 @@ void updateEntryGateStatus(int &entrySwitchLastState, bool &entryMode, bool &isE
   if(entryMode) return;
 
   // run down here only in auto mode
-  if(xSemaphoreTake(entryGateStateMutex, 0)){
-    if (currentEntryGateStatus == OPEN) {
-      if (!isEntryFrontSensorDetected && !isEntryBackSensorDetected) {
-          currentEntryGateStatus = CLOSE;
-          entryScanner.clearCache();
-      }
-    } else {
-      if(xSemaphoreTake(scannedCardStateMutex, portMAX_DELAY)){
-        if (hasSlot && (scannedCardState == VALID_CARD) && isEntryFrontSensorDetected) {
-          currentEntryGateStatus = OPEN;
-        } else { 
-          currentEntryGateStatus = CLOSE;
-          entryScanner.clearCache();
-        }
-
-        xSemaphoreGive(scannedCardStateMutex);
-      }
+  if (currentEntryGateStatus == OPEN) {
+    if (!isEntryFrontSensorDetected && !isEntryBackSensorDetected) {
+        currentEntryGateStatus = CLOSE;
+        entryScanner.clearCache();
     }
+  } else {
+    int scannedCardState = UNDETECTED;
+    xQueueReceive(validCardDetectedQueue, &scannedCardState, 0);
 
-    xSemaphoreGive(entryGateStateMutex);
+    if (hasSlot && (scannedCardState == VALID_CARD) && isEntryFrontSensorDetected) {
+      currentEntryGateStatus = OPEN;
+    } else { 
+      currentEntryGateStatus = CLOSE;
+      entryScanner.clearCache();
+    }
   }
 }
 
-void updateExitGateStatus(int &exitSwitchLastState, bool &exitMode, bool &isExitFrontSensorDetected, bool &isExitBackSensorDetected) { 
-  int newState = digitalRead(EXIT_BTN_PIN);
-  if(newState != exitSwitchLastState){ // manual mode
+void updateExitGateStatus(int &exitSwitchLastState, bool &exitMode, bool &currentExitGateStatus,
+                          bool isExitFrontSensorDetected, bool isExitBackSensorDetected, int newExitSwitchState) { 
+  if(newExitSwitchState != exitSwitchLastState){ // manual mode
     //update related variables
-    exitSwitchLastState = newState;
+    exitSwitchLastState = newExitSwitchState;
     exitMode = !exitMode;
 
     //handle mode change event
-    if(exitMode && xSemaphoreTake(exitGateStateMutex, portMAX_DELAY)) {
+    if(exitMode) {
       currentExitGateStatus = (currentExitGateStatus == OPEN) ? CLOSE : OPEN;
-
-      xSemaphoreGive(exitGateStateMutex);
     }
     return;
   }
@@ -152,246 +167,288 @@ void updateExitGateStatus(int &exitSwitchLastState, bool &exitMode, bool &isExit
   if(exitMode) return;
 
   // run down here only in auto mode
-  if(xSemaphoreTake(exitGateStateMutex, portMAX_DELAY)){
-    if (currentExitGateStatus == OPEN) {
-      if (!isExitFrontSensorDetected && !isExitBackSensorDetected) {
-        currentExitGateStatus = CLOSE;
-      }
-    } else {
-      if (isExitFrontSensorDetected) {
-        currentExitGateStatus = OPEN;
-      } else {
-        currentExitGateStatus = CLOSE;
-      }
+  if (currentExitGateStatus == OPEN) {
+    if (!isExitFrontSensorDetected && !isExitBackSensorDetected) {
+      currentExitGateStatus = CLOSE;
     }
-
-    xSemaphoreGive(exitGateStateMutex);
+  } else {
+    if (isExitFrontSensorDetected) {
+      currentExitGateStatus = OPEN;
+    } else {
+      currentExitGateStatus = CLOSE;
+    }
   }
 }
 
 void consumeESPCommand (void *pvParameters) { 
-  consumeESPCommandHandler = xTaskGetCurrentTaskHandle();
-
   while(1) {
     // Serial.println(1);
-    if(Serial.available() > 0) {
-      String input = Serial.readStringUntil('\n');
-      int separatorIndex = input.indexOf(':');
-
-      if (separatorIndex != -1) {
-        String label = input.substring(0, separatorIndex);
-        String value = input.substring(separatorIndex + 1);
-        value.trim();
-
-        if(label.equals("USER") && xSemaphoreTake(usernameMutex, 0)) {
-          username = value;
-
-          xSemaphoreGive(usernameMutex);
-        } 
-        if(label.equals("CHECKING-RESULT")){
-          if(xSemaphoreTake(scannedCardStateMutex, portMAX_DELAY)){
-            xTaskNotifyGive(renderHandler);
-            if(value.equals("1") || value.equals("0")){
-              scannedCardState = value.toInt();
-            } else {
-              scannedCardState = UNDETECTED;
-            }
-
-            xSemaphoreGive(scannedCardStateMutex);
-          }
-        }  
-      }
+    if(Serial.available() <= 0) {
+      continue;
     }
 
-    if (ulTaskNotifyTake(pdTRUE, 0)) {
-      if(xSemaphoreTake(scannedCardStateMutex, portMAX_DELAY)){
-        scannedCardState = UNDETECTED;
+    String input = Serial.readStringUntil('\n');
+    int separatorIndex = input.indexOf(':');
 
-        xSemaphoreGive(scannedCardStateMutex);
-      }
+    if (separatorIndex == -1) {
+      continue;
     }
 
-    vTaskDelay(pdMS_TO_TICKS(1));
+    //down here only when receive valid ESP command
+    String label = input.substring(0, separatorIndex);
+    String value = input.substring(separatorIndex + 1);
+    value.trim();
+
+    if(label.equals("USER")) {
+      char msg[15];
+      value.toCharArray(msg, sizeof(msg));
+      int result = xQueueOverwrite(usernameQueue, msg);
+      if(result == errQUEUE_FULL){
+        Serial.println("[consumeESPCommand] Fail to overwrite usernameQueue");
+      }
+    } 
+
+    if(label.equals("CHECKING-RESULT")){
+      if(value.equals("1") || value.equals("0")){
+        int valueToInt = value.toInt();
+        int result = xQueueOverwrite(scannedCardStateQueue, &valueToInt);
+        if(result == errQUEUE_FULL){
+          Serial.println("[consumeESPCommand] Fail to overwrite scannedCardStateQueue");
+        }
+      }
+
+      if(value.equals("1")){
+        int valueToInt = value.toInt();
+        int result = xQueueOverwrite(validCardDetectedQueue, &valueToInt);
+        if(result == errQUEUE_FULL){
+          Serial.println("[consumeESPCommand] Fail to overwrite validCardDetectedQueue");
+        }
+      }
+    }  
   }
 }
 
 void readSensor(void *pvParameters) {
-  int entrySwitchLastState = digitalRead(ENTRY_BTN_PIN);
-  int exitSwitchLastState = digitalRead(EXIT_BTN_PIN);
-  bool entryMode = false;
-  bool exitMode = false;
-  bool isEntryFrontSensorDetected = false;
-  bool isEntryBackSensorDetected = false;
-  bool isExitFrontSensorDetected = false;
-  bool isExitBackSensorDetected = false;
+  int slotStates = 0;
+  int gateState = 0;
+  int lightState = 0;
 
   while(1) {
-    int slotsLeft = TOTAL_SLOTS;
-    int sensorValue;
-    int prevSlotStateCounter = 0;
-
     // read parkinglot sensors
-    if(xSemaphoreTake(slotStateMutex, portMAX_DELAY)){
-      for (int i = 0; i < 6; i++) {
-        sensorValue = infraredSensor.isParkingSensorDetected(i) ? 1 : 0;
-        if(slotStates[i] != sensorValue){
-          prevSlotStateCounter++;
-        }
-        slotStates[i] = sensorValue;
-        slotsLeft = slotsLeft - slotStates[i];
-      }
-      hasSlot = slotsLeft > 0;
-
-      xSemaphoreGive(slotStateMutex);
+    slotStates = 0;
+    for (int i = 0; i < TOTAL_SLOTS; i++) {
+      int value = infraredSensor.isParkingSensorDetected(i) ? 1 : 0;
+      appendBit(slotStates, value);
+    }
+    int result = xQueueOverwrite(slotStateQueue, &slotStates);
+    if(result == errQUEUE_FULL){
+      Serial.println("[readSensor] Fail to overwrite slotStateQueue");
     }
 
-    if(prevSlotStateCounter > 0){ 
-      xTaskNotifyGive(parkingSlotStatesChangeHandler);
-    }
-    
+    // unsigned long time_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
+    // Serial.println("sensor: " + (String)time_ms);
+
     // read sensor around gates
-    isEntryFrontSensorDetected = infraredSensor.isEntryFrontSensorDetected();
-    isEntryBackSensorDetected = infraredSensor.isEntryBackSensorDetected();
-    isExitFrontSensorDetected = infraredSensor.isExitFrontSensorDetected();
-    isExitBackSensorDetected = infraredSensor.isExitBackSensorDetected();
+    gateState = 0;
+    appendBit(gateState, infraredSensor.isEntryFrontSensorDetected());
+    appendBit(gateState, infraredSensor.isEntryBackSensorDetected());
+    appendBit(gateState, digitalRead(ENTRY_BTN_PIN));
+    appendBit(gateState, infraredSensor.isExitFrontSensorDetected());
+    appendBit(gateState, infraredSensor.isExitBackSensorDetected());
+    appendBit(gateState, digitalRead(EXIT_BTN_PIN));
+    result = xQueueOverwrite(gateStateQueue, &gateState);
+    if(result == errQUEUE_FULL){
+      Serial.println("[readSensor] Fail to overwrite gateStateQueue");
+    }
 
+    //read light sensor
+    lightState = digitalRead(LIGHT_SENSOR_PIN);
+    result = xQueueOverwrite(lightStateQueue, &lightState);
+    if(result == errQUEUE_FULL){
+      Serial.println("[readSensor] Fail to overwrite lightStateQueue");
+    }
+  }
+}
+
+void readRFID(void *pvParameters) {
+  while(1) {
     // read RFID card
     bool isDetected = entryScanner.validateCard();
-    if(!entryScanner.hasSend && isDetected ) {
-      printCardToSerial(entryScanner.scannedCardIndex);
-      entryScanner.hasSend = true;
-      if(xSemaphoreTake(scannedCardStateMutex, portMAX_DELAY)){
-        scannedCardState = CHECKING_CARD;
-
-        xSemaphoreGive(scannedCardStateMutex);
+    if(!entryScanner.hasSend && isDetected) {
+      int result = xQueueOverwrite(cardInfoQueue, &(entryScanner.scannedCardIndex));
+      if(result == errQUEUE_FULL){
+        Serial.println("[readRFID] Fail to overwrite cardInforQueue");
       }
+
+      entryScanner.hasSend = true;
     }
-
-    // update gate status
-    updateEntryGateStatus(entrySwitchLastState, entryMode, isEntryFrontSensorDetected, isEntryBackSensorDetected);
-    updateExitGateStatus(exitSwitchLastState, exitMode, isExitFrontSensorDetected, isExitBackSensorDetected);
-
-    vTaskDelay(pdMS_TO_TICKS(1));
   }
 }
 
 void render(void *pvParameters) {
-  int loopCounter = LCD_LOOP_COUNTER;
-  renderHandler = xTaskGetCurrentTaskHandle();
+  int slotStates = 0;
+  int cardState = UNDETECTED;
+  char username[15] = "";
+  char displayText[30];
 
   while(1){
     // Serial.println("3");
-    if (ulTaskNotifyTake(pdTRUE, 0)) {
-      // start countdown
-      loopCounter--;
+    int popResult = xQueueReceive(scannedCardStateQueue, &cardState, 0);
+    if (popResult == pdTRUE) {
       display.clearScreen();
+      if (cardState == VALID_CARD || cardState == INVALID_CARD) {
+        //start counting if result arrived
+        memset(username, 0, sizeof(username));
+        memset(displayText, 0, sizeof(displayText));
+        username[0] = '\0';
+        displayText[0] = '\0';
+        strcat(displayText, "Hi ");
+      }
     }
+    vTaskPrioritySet(renderTaskHandle, 2);
 
-    if(loopCounter == 0){
-      // clear LCD after display scanning result for a while
-      loopCounter = LCD_LOOP_COUNTER;
+    // rendering`s main logic
+    if(cardState == VALID_CARD){
+      if(xQueueReceive(usernameQueue, username, 0)){
+        strcat(displayText, username);
+        strcat(displayText, " !");
+      }
+      display.printString(displayText);
+      vTaskDelay(2000 / portTICK_PERIOD_MS);
+
       display.clearScreen();
-      xTaskNotifyGive(consumeESPCommandHandler);
-      taskYIELD();
+      cardState = UNDETECTED;
+    } else if(cardState == INVALID_CARD) {
+      display.printString("Invalid card");
+      vTaskDelay(2000 / portTICK_PERIOD_MS);
+
+      display.clearScreen();
+      cardState = UNDETECTED;
+    } else if (cardState == CHECKING_CARD) {
+      display.printString("Scanning...");
+
+    } else {
+      // unsigned long time_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
+      // Serial.println("before peek: " + (String)time_ms);
+
+      xQueuePeek(slotStateQueue, &slotStates, 0);
+      // display.render(0, 0, 0, 0, 0, 0); 
+      display.render(getBitAt(slotStates, 5), getBitAt(slotStates, 4), getBitAt(slotStates, 3), 
+                     getBitAt(slotStates, 2), getBitAt(slotStates, 1), getBitAt(slotStates, 0));
+
+      // time_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
+      // Serial.println("after render: " + (String)time_ms);
     }
-
-    if(xSemaphoreTake(scannedCardStateMutex, 0)){
-      // clear screen if receive card chechking result
-      if((loopCounter == LCD_LOOP_COUNTER - 1) && scannedCardState != UNDETECTED){
-        display.clearScreen();
-      }
-
-      xSemaphoreGive(scannedCardStateMutex);
-    }
-
-    if(xSemaphoreTake(scannedCardStateMutex, portMAX_DELAY)){
-      // render main logic
-      if(scannedCardState == VALID_CARD){
-        if(xSemaphoreTake(usernameMutex, 0)){
-          display.printString("Hi " + username + " !");
-
-          xSemaphoreGive(usernameMutex);
-        }
-      } else if(scannedCardState == INVALID_CARD) {
-        display.printString("Invalid card");
-      } else if (scannedCardState == CHECKING_CARD) {
-        display.clearScreen();
-        display.printString("Scan...");
-
-        xSemaphoreGive(scannedCardStateMutex);
-        vTaskDelay(pdMS_TO_TICKS(100));
-        continue;
-      } else {
-        if(xSemaphoreTake(slotStateMutex, portMAX_DELAY)){
-          display.render(slotStates[0], slotStates[1], slotStates[2], slotStates[3], slotStates[4], slotStates[5]);
-          
-          xSemaphoreGive(slotStateMutex);
-        }
-
-        xSemaphoreGive(scannedCardStateMutex);
-        vTaskDelay(pdMS_TO_TICKS(1));
-        continue;
-      }
-
-      xSemaphoreGive(scannedCardStateMutex);
-    }
-
-    vTaskDelay(pdMS_TO_TICKS(1));
-    loopCounter--;
+    vTaskPrioritySet(renderTaskHandle, 1);
   }
 }
 
 void controlHardware(void *pvParameters) {
+  int entrySwitchLastState = 0;
+  int exitSwitchLastState = 0;
+  bool entryMode = false;
+  bool exitMode = false;
+  bool currentEntryGateStatus = 0;
+  bool currentExitGateStatus = 0;
+  int gateState = 0;
+  int slotState = 0;
+  int lightState = 0;
+
   while(1) {
     // Serial.println("4");
-    if (digitalRead(LIGHT_SENSOR_PIN) == HIGH) {
+    xQueuePeek(gateStateQueue, &gateState, 0);
+    xQueuePeek(slotStateQueue, &slotState, 0);
+    xQueuePeek(lightStateQueue, &lightState, 0);
+
+    if (lightState == HIGH) {
       digitalWrite(LED_PIN, HIGH);
     } else {
       digitalWrite(LED_PIN, LOW);
     }
 
-    if(xSemaphoreTake(entryGateStateMutex, 0)){
-      if (currentEntryGateStatus == OPEN) {
-        entryGate.open();
-      } else {
-        entryGate.close();
-      }
-
-      xSemaphoreGive(entryGateStateMutex);
+    // update gate status
+    updateEntryGateStatus(entrySwitchLastState, entryMode, currentEntryGateStatus, 
+              getBitAt(gateState, 5), getBitAt(gateState, 4), slotState != TOTAL_SLOTS_BITS_TO_INT, 
+              getBitAt(gateState, 3));
+ 
+    if (currentEntryGateStatus == OPEN) {
+      entryGate.open();
+    } else {
+      entryGate.close();
     }
 
-    if(xSemaphoreTake(exitGateStateMutex, 0)){
-      if (currentExitGateStatus == OPEN) {
-        exitGate.open();
-      } else {
-        exitGate.close();
-      }
+    updateExitGateStatus(exitSwitchLastState, exitMode, currentExitGateStatus, 
+              getBitAt(gateState, 2), getBitAt(gateState, 1), getBitAt(gateState, 0));
 
-      xSemaphoreGive(exitGateStateMutex);
+    if (currentExitGateStatus == OPEN) {
+      exitGate.open();
+    } else {
+      exitGate.close();
     }
-
-    vTaskDelay(pdMS_TO_TICKS(1));
   }
 }
 
-void handleParkinglotStatesChanges (void *pvParameters) {
-  parkingSlotStatesChangeHandler = xTaskGetCurrentTaskHandle();
-  while (1){
-    // Serial.println("5");
-    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+void detectParkingStatesChanges (void *pvParameters) {
+  int slotStates = 0;
+  int newSlotStates = 0;
 
-    if(xSemaphoreTake(slotStateMutex, portMAX_DELAY)){
-      String message = "STATE:";
-      for (int i = 0; i < TOTAL_SLOTS; i++) {
-        message += String(slotStates[i]);
-        if (i < TOTAL_SLOTS - 1) {
-          message += ","; 
+  while (1){
+    // Serial.println("6");
+    if(xQueuePeek(slotStateQueue, &newSlotStates, 0)){
+      if(slotStates - newSlotStates != 0){ 
+        Serial.println("state change: " + (String)newSlotStates + " " + (String)slotStates);
+        slotStates = newSlotStates;
+        int result = xQueueOverwrite(slotSignalQueue, &slotStates);
+        if(result == errQUEUE_FULL){
+          Serial.println("[detectParkingStatesChanges] Fail to overwrite slotSignalQueue");
         }
       }
-      Serial.println(message);
-
-      xSemaphoreGive(slotStateMutex);
     }
+  }
+}
+
+void produceESPCommand (void *pvParameters) {
+  int slotStates;
+  int cardIndex;
+
+  while (1){
+    // Serial.println("5");
+    if(xQueueReceive(slotSignalQueue, &slotStates, 0)){
+      printParkingStatesToSerial(slotStates);
+    }
+
+    if(xQueueReceive(cardSignalQueue, &cardIndex, 0)){
+      printCardToSerial(cardIndex);
+    }
+  }
+}
+
+void sensorRFIDFusion (void *pvParameters) {
+  int cardIndex;
+  int gateState = 0;
+
+  while (1){
+    // Serial.println("5");
+    xQueuePeek(gateStateQueue,&gateState, 0);
+
+    if(xQueueReceive(cardInfoQueue,&cardIndex, 0) 
+      && getBitAt(gateState, TOTAL_SLOTS - 1)){
+      // go in here if entry gate`s front Sensor is 1 and card is detected
+      int result = xQueueOverwrite(cardSignalQueue, &cardIndex);
+      if(result == errQUEUE_FULL){
+        Serial.println("[sensorRFIDFusion] Fail to overwrite cardInfoQueue");
+      }
+      
+      // only sent if queue is empty
+      if (uxQueueMessagesWaiting(scannedCardStateQueue) == 0){
+        int cardState = CHECKING_CARD;
+        int result = xQueueOverwrite(scannedCardStateQueue, &cardState);
+        if(result == errQUEUE_FULL){
+          Serial.println("[sensorRFIDFusion] Fail to overwrite scannedCardStateQueue");
+        }
+      }
+    }
+
   }
 }
 
@@ -415,19 +472,25 @@ void setup() {
   display.init();
   entryGate.init();
   entryScanner.init(validUIDs, 6);
-  exitGate.init();
-
-  entryGateStateMutex = xSemaphoreCreateMutex();
-  exitGateStateMutex = xSemaphoreCreateMutex();
-  slotStateMutex = xSemaphoreCreateMutex();
-  scannedCardStateMutex = xSemaphoreCreateMutex();
-  usernameMutex = xSemaphoreCreateMutex();
+  exitGate.init(); 
+  slotStateQueue = xQueueCreate(1, sizeof(int));
+  slotSignalQueue = xQueueCreate(1, sizeof(int));
+  usernameQueue = xQueueCreate(1, sizeof(char[15]));
+  scannedCardStateQueue = xQueueCreate(1, sizeof(int));
+  gateStateQueue = xQueueCreate(1, sizeof(int));
+  validCardDetectedQueue = xQueueCreate(1, sizeof(int));
+  lightStateQueue = xQueueCreate(1, sizeof(int));
+  cardInfoQueue = xQueueCreate(1, sizeof(int));
+  cardSignalQueue = xQueueCreate(1, sizeof(int));
 
   xTaskCreate(consumeESPCommand, "Task1", 300, NULL, 1, NULL);
   xTaskCreate(readSensor, "Task2", 300, NULL, 1, NULL);
-  xTaskCreate(render, "Task3", 300, NULL, 1, &renderHandler);
-  xTaskCreate(controlHardware, "Task4", 300, NULL, 1, NULL);
-  xTaskCreate(handleParkinglotStatesChanges, "Task5", 300, NULL, 2, &parkingSlotStatesChangeHandler);
+  xTaskCreate(readRFID, "Task3", 300, NULL, 1, NULL);
+  xTaskCreate(render, "Task4", 300, NULL, 1, &renderTaskHandle);
+  xTaskCreate(controlHardware, "Task5", 300, NULL, 1, NULL);
+  xTaskCreate(detectParkingStatesChanges, "Task6", 300, NULL, 1, NULL);
+  xTaskCreate(produceESPCommand, "Task7", 300, NULL, 1, NULL);
+  xTaskCreate(sensorRFIDFusion, "Task8", 300, NULL, 1, NULL);
 
   vTaskStartScheduler();
 }

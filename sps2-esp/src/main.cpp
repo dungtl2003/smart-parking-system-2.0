@@ -25,8 +25,8 @@ void setup() {
     delay(1000);
   }
 
-  WiFi.mode(WIFI_STA);
-  WiFiMulti.addAP("AndroidAP", "12345679"); // must use the same wifi as Expressjs server
+  // WiFi.mode(WIFI_STA);
+  // WiFiMulti.addAP("AndroidAP", "12345679"); // must use the same wifi as Expressjs server
 }
 
 String urlencode(const String &str) {
@@ -46,6 +46,9 @@ String urlencode(const String &str) {
 }
 
 void requestForCarEntering (String value) {
+  Serial.println("USER:Huy\nCHECKING-RESULT:1");
+  return;
+
   http.setTimeout(30000);
   String url = carEnteringUrl + urlencode(value);
 
@@ -85,6 +88,9 @@ void requestForCarEntering (String value) {
 }
 
 void requestToUpdateParkingState (String value) {
+  return;
+  //test
+
   http.setTimeout(30000);
   if (http.begin(client, updateParkingSlotUrl)) {
     http.addHeader("Content-Type", "application/json");
@@ -107,6 +113,10 @@ void requestToUpdateParkingState (String value) {
 }
 
 void pingToExpressServer () {
+  readyToRequest = true;
+  return;
+  //test
+
   http.setTimeout(2000);
   if (http.begin(client, healthCheckUrl)) {
     Serial.println("[HTTP] GET: " + healthCheckUrl);
@@ -131,7 +141,7 @@ void pingToExpressServer () {
 }
 
 void loop() {
-  if ((WiFiMulti.run() == WL_CONNECTED)) { // wifi is ready
+  // if ((WiFiMulti.run() == WL_CONNECTED)) { // wifi is ready
     if(readyToRequest){ // express server is ready
       if((Serial.available() > 0)){ //Serial is ready
         String input = Serial.readStringUntil('\n');
@@ -153,5 +163,5 @@ void loop() {
       pingToExpressServer();
       delay(1000);
     }
-  }
+  // }
 }
