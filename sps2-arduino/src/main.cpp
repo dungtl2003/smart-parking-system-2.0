@@ -183,10 +183,6 @@ void updateExitGateStatus(int &exitSwitchLastState, bool &exitMode, bool &curren
     }
   } else {
     int scannedCardState = UNDETECTED;
-    if(xQueueReceive(exitGateValidCardDetectedQueue, &scannedCardState, 0)){
-      Serial.println("checking value" + (String)scannedCardState + " " + (String)isExitFrontSensorDetected);
-    }
-
     if ((scannedCardState == EXIT_VALID_CARD) && isExitFrontSensorDetected) {
       currentExitGateStatus = OPEN;
     } else {
@@ -204,7 +200,6 @@ void consumeESPCommand (void *pvParameters) {
     }
 
     String input = Serial.readStringUntil('\n');
-    Serial.println(input);
     int separatorIndex = input.indexOf(':');
 
     if (separatorIndex == -1) {
@@ -248,7 +243,6 @@ void consumeESPCommand (void *pvParameters) {
       }
 
       if(value.toInt() == EXIT_VALID_CARD){
-        Serial.println("received valid exit signal");
         int result = xQueueOverwrite(exitGateValidCardDetectedQueue, &valueToInt);
         if(result == errQUEUE_FULL){
           Serial.println("[consumeESPCommand] Fail to overwrite exitGateValidCardDetectedQueue");
@@ -322,7 +316,6 @@ void render(void *pvParameters) {
   char displayText[30];
 
   while(1){
-    // Serial.println("3");
     int popResult = xQueueReceive(scannedCardStateQueue, &cardState, 0);
     if (popResult == pdTRUE) {
       display.clearScreen();
@@ -387,7 +380,6 @@ void controlLight(void *pvParameters) {
   int lightState = 0;
 
   while(1) {
-    // Serial.println("4");
     xQueuePeek(lightStateQueue, &lightState, 0);
 
     if (lightState == HIGH) {
@@ -409,7 +401,6 @@ void controlGate(void *pvParameters) {
   int slotState = 0;
 
   while(1) {
-    // Serial.println("4");
     xQueuePeek(gateStateQueue, &gateState, 0);
     xQueuePeek(slotStateQueue, &slotState, 0);
 
@@ -441,7 +432,6 @@ void detectParkingStatesChanges (void *pvParameters) {
   int newSlotStates = 0;
 
   while (1){
-    // Serial.println("6");
     if(xQueuePeek(slotStateQueue, &newSlotStates, 0)){
       if(slotStates - newSlotStates != 0){ 
         Serial.println("state change: " + (String)newSlotStates + " " + (String)slotStates);
@@ -461,7 +451,6 @@ void produceESPCommand (void *pvParameters) {
   int gatePos = -1;
 
   while (1){
-    // Serial.println("5");
     xQueueReceive(cardSignalQueue, &cardIndex, 0);
     xQueueReceive(gatePosQueue, &gatePos, 0);
 
@@ -483,7 +472,6 @@ void sensorRFIDFusion (void *pvParameters) {
   int gateState = 0;
 
   while (1){
-    // Serial.println("5");
     xQueuePeek(gateStateQueue,&gateState, 0);
 
     if(xQueueReceive(cardInfoQueue,&cardIndex, 0) 
