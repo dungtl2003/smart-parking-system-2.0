@@ -10,6 +10,9 @@
 #define OPEN 1
 #define CLOSE 0
 
+#define ENTRY_GATE 1
+#define EXIT_GATE 0
+
 #define ENTRY_INVALID_CARD 0
 #define ENTRY_VALID_CARD 1
 #define EXIT_INVALID_CARD 3
@@ -68,32 +71,38 @@ QueueHandle_t scannedCardStateQueue;
 
 QueueHandle_t gateStateQueue;
 
-QueueHandle_t entryGateValidCardDetectedQueue;
-
-QueueHandle_t exitGateValidCardDetectedQueue;
-
 QueueHandle_t lightStateQueue;
 
 QueueHandle_t cardInfoQueue;
 
-QueueHandle_t cardSignalQueue;
+QueueHandle_t cardWithSpecificGateQueue;
 
-QueueHandle_t gatePosQueue;
+SemaphoreHandle_t validEntryScanningSE;
+
+SemaphoreHandle_t validExitScanningSE;
+
+SemaphoreHandle_t entryScannerIsReadyToOpenGateSE;
+
+SemaphoreHandle_t exitScannerIsReadyToOpenGateSE;
 
 TaskHandle_t renderTaskHandle = NULL;
 
-int getBitAt (int slots, int index){
+int getBitAt (int srcNum, int index){
   //Index start from right to left
-  return (slots >> index) & 1;
+  return (srcNum >> index) & 1;
 }
 
-void appendBit (int &slots, int value){
-  slots = (slots << 1) + value;
+void truncateNBitsEnd (int &srcNum, int n){
+  srcNum >= n;
 }
 
-void printGateAndCardToSerial (int index, int gate) {
+void appendBit (int &srcNum, int value){
+  srcNum = (srcNum << 1) + value;
+}
+
+void printGateAndCardToSerial (int index, bool gate) {
   String result = "";
-  String gatePos = gate == 1 ? "R" : "L";
+  String gatePrior = gate == ENTRY_GATE ? "R" : "L";
   
   for (int i = 0; i < 4; i++) {
     result += "0x";
@@ -108,7 +117,7 @@ void printGateAndCardToSerial (int index, int gate) {
     }
   }
 
-  Serial.println("CARD:"+ gatePos + ":" + result);
+  Serial.println("CARD:"+ gatePrior + ":" + result);
 }
 
 void printParkingStatesToSerial (int slotStates) {
@@ -146,14 +155,16 @@ void updateEntryGateStatus(int &entrySwitchLastState, bool &entryMode, bool &cur
         entryScanner.clearCache();
     }
   } else {
-    int scannedCardState = UNDETECTED;
-    xQueueReceive(entryGateValidCardDetectedQueue, &scannedCardState, 0);
-
-    if (hasSlot && (scannedCardState == ENTRY_VALID_CARD) && isEntryFrontSensorDetected) {
+    if (hasSlot 
+      && isEntryFrontSensorDetected
+      && (xSemaphoreTake(entryScannerIsReadyToOpenGateSE, 0) == pdTRUE)) 
+    {
       currentEntryGateStatus = OPEN;
+
     } else { 
       currentEntryGateStatus = CLOSE;
       entryScanner.clearCache();
+
     }
   }
 }
@@ -182,12 +193,15 @@ void updateExitGateStatus(int &exitSwitchLastState, bool &exitMode, bool &curren
       entryScanner.clearCache();
     }
   } else {
-    int scannedCardState = UNDETECTED;
-    if ((scannedCardState == EXIT_VALID_CARD) && isExitFrontSensorDetected) {
+    if (isExitFrontSensorDetected
+      && (xSemaphoreTake(exitScannerIsReadyToOpenGateSE, 0) == pdTRUE)) 
+    {
       currentExitGateStatus = OPEN;
+
     } else {
       currentExitGateStatus = CLOSE;
       entryScanner.clearCache();
+
     }
   }
 }
@@ -235,18 +249,14 @@ void consumeESPCommand (void *pvParameters) {
       }
 
       // send to control gate
-      if(value.toInt() == ENTRY_VALID_CARD){
-        int result = xQueueOverwrite(entryGateValidCardDetectedQueue, &valueToInt);
-        if(result == errQUEUE_FULL){
-          Serial.println("[consumeESPCommand] Fail to overwrite entryGateValidCardDetectedQueue");
-        }
+      if(valueToInt == ENTRY_VALID_CARD){
+        xSemaphoreGive(entryScannerIsReadyToOpenGateSE);
+        xSemaphoreGive(validEntryScanningSE);
       }
 
-      if(value.toInt() == EXIT_VALID_CARD){
-        int result = xQueueOverwrite(exitGateValidCardDetectedQueue, &valueToInt);
-        if(result == errQUEUE_FULL){
-          Serial.println("[consumeESPCommand] Fail to overwrite exitGateValidCardDetectedQueue");
-        }
+      if(valueToInt == EXIT_VALID_CARD){
+        xSemaphoreGive(exitScannerIsReadyToOpenGateSE);
+        xSemaphoreGive(validExitScanningSE);
       }
     }  
   }
@@ -447,17 +457,15 @@ void detectParkingStatesChanges (void *pvParameters) {
 
 void produceESPCommand (void *pvParameters) {
   int slotStates;
-  int cardIndex = -1;
-  int gatePos = -1;
+  int cardMixGate = -1;
 
   while (1){
-    xQueueReceive(cardSignalQueue, &cardIndex, 0);
-    xQueueReceive(gatePosQueue, &gatePos, 0);
+    if(xQueueReceive(cardWithSpecificGateQueue, &cardMixGate, 0)){
+      int gate = getBitAt(cardMixGate, 0); // get the last bit which is gate value
+      truncateNBitsEnd(cardMixGate, 1); // truncate the last bit to get the proper cardIndex
 
-    if(cardIndex != -1 && gatePos != -1){
-      printGateAndCardToSerial(cardIndex, gatePos);
-      gatePos = -1;
-      cardIndex = -1;
+      printGateAndCardToSerial(cardMixGate, gate);
+      cardMixGate = -1;
     }
 
     if(xQueueReceive(slotSignalQueue, &slotStates, 0)){
@@ -468,24 +476,65 @@ void produceESPCommand (void *pvParameters) {
 
 void sensorRFIDFusion (void *pvParameters) {
   int cardIndex;
-  int gatePos; //1 is Entry which is "R", 0 is Exit which is "L"
-  int gateState = 0;
+  int gateSensorStates = 0;
+  int gate = -1;
+  int result;
+  bool entryScannble = true;
+  bool exitScannable = true;
 
   while (1){
-    xQueuePeek(gateStateQueue,&gateState, 0);
+    xQueuePeek(gateStateQueue,&gateSensorStates, 0);
+    // bit 5th is the value of sensor which is futher to the parkinglot at the entry gate
+    // bit 4th is the value of sensor which is closer to the parkinglot at the entry gate
+    // bit 2nd is the value of sensor which is closer to the parkinglot at the exit gate
+    // bit 1nd is the value of sensor which is futher to the parkinglot at the exit gate
 
-    if(xQueueReceive(cardInfoQueue,&cardIndex, 0) 
-      && (getBitAt(gateState, 5) || getBitAt(gateState, 2) ))
-    {
-      // productRFIDFusion: go in here if card is detected and entry gate`s front Sensor or exit gate`s front Sensor is 1 
-      int result = xQueueOverwrite(cardSignalQueue, &cardIndex);
-      if(result == errQUEUE_FULL){
-        Serial.println("[sensorRFIDFusion] Fail to overwrite cardInfoQueue");
+    // if that gate's barrier is open, that side is unscannable 
+    if(xSemaphoreTake(validEntryScanningSE, 0) == pdTRUE){
+      entryScannble = false; 
+    }
+    if(xSemaphoreTake(validExitScanningSE, 0) == pdTRUE){
+      exitScannable = false; 
+    }
+    // if both sensors of that gate detects not thing, that side will return to scannable 
+    if(!entryScannble 
+      && !getBitAt(gateSensorStates, 5) 
+      && !getBitAt(gateSensorStates, 4)){
+      entryScannble = true; 
+    }
+    if(!exitScannable 
+      && !getBitAt(gateSensorStates, 2) 
+      && !getBitAt(gateSensorStates, 1)){
+      exitScannable = true; 
+    }
+
+    // decide the priority of gate for scanning
+    if(getBitAt(gateSensorStates, 5) && !getBitAt(gateSensorStates, 2)){
+      gate = ENTRY_GATE;
+    } else if(!getBitAt(gateSensorStates, 5) && getBitAt(gateSensorStates, 2)){
+      gate = EXIT_GATE;
+    } else if(!getBitAt(gateSensorStates, 5) && !getBitAt(gateSensorStates, 2)){
+      gate = -1;
+    } else {
+      if(entryScannble && exitScannable){
+        if(gate == ENTRY_GATE){
+          gate = EXIT_GATE;
+        } else {
+          gate = ENTRY_GATE;
+        }
+      }else if(entryScannble || exitScannable){
+        gate = entryScannble ? ENTRY_GATE: EXIT_GATE;
       }
-      int gatePos = getBitAt(gateState, 5) ? 1 : 0;
-      result = xQueueOverwrite(gatePosQueue, &gatePos);
+    }
+
+    if((entryScannble || exitScannable)
+      && (gate != -1)
+      && xQueueReceive(cardInfoQueue,&cardIndex, 0))
+    { // productRFIDFusion: go in here if card is detected and entry gate`s front Sensor or exit gate`s front Sensor detected signal
+      appendBit(cardIndex, gate); // append the gate value to the end of cardIndex's bits
+      result = xQueueSend(cardWithSpecificGateQueue, &cardIndex, portMAX_DELAY);
       if(result == errQUEUE_FULL){
-        Serial.println("[sensorRFIDFusion] Fail to overwrite gatePosQueue");
+        Serial.println("[sensorRFIDFusion] Fail to overwrite cardWithSpecificGateQueue");
       }
       
       // render: only sent if queue is empty
@@ -527,12 +576,23 @@ void setup() {
   usernameQueue = xQueueCreate(1, sizeof(char[15]));
   scannedCardStateQueue = xQueueCreate(1, sizeof(int));
   gateStateQueue = xQueueCreate(1, sizeof(int));
-  entryGateValidCardDetectedQueue = xQueueCreate(1, sizeof(int));
-  exitGateValidCardDetectedQueue = xQueueCreate(1, sizeof(int));
   lightStateQueue = xQueueCreate(1, sizeof(int));
   cardInfoQueue = xQueueCreate(1, sizeof(int));
-  cardSignalQueue = xQueueCreate(1, sizeof(int));
-  gatePosQueue = xQueueCreate(1, sizeof(int));
+  cardWithSpecificGateQueue = xQueueCreate(10, sizeof(int));
+
+  validEntryScanningSE = xSemaphoreCreateBinary();
+  validExitScanningSE = xSemaphoreCreateBinary();
+  entryScannerIsReadyToOpenGateSE = xSemaphoreCreateBinary();
+  exitScannerIsReadyToOpenGateSE = xSemaphoreCreateBinary();
+
+  if(validEntryScanningSE == NULL
+    || validExitScanningSE == NULL
+    || entryScannerIsReadyToOpenGateSE == NULL
+    || exitScannerIsReadyToOpenGateSE == NULL
+  ){
+    Serial.println("[SetUp] Fail to create semaphore");
+    return;
+  }
 
   xTaskCreate(consumeESPCommand, "Task1", 300, NULL, 1, NULL);
   xTaskCreate(readSignal, "Task2", 300, NULL, 1, NULL);

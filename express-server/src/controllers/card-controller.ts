@@ -52,8 +52,8 @@ const deleteCard = async (req: Request, res: Response) => {
 };
 
 const validateCard = async (req: Request, res: Response) => {
-    let cardId = req.query.cardId as string;
-    let gatePos = req.query.gatePos as string;
+    let cardId = req.query.card_id as string;
+    let gatePos = req.query.gate_pos as string;
     if (cardId || gatePos) {
         cardId = cardId.trim();
         gatePos = gatePos.trim();

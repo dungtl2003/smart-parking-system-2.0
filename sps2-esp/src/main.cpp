@@ -5,12 +5,12 @@
 #include <WiFiClient.h>
 #include <ArduinoJson.h>
 
-#define EXPRESS_SERVER "http://192.168.22.103:4000" //change to the ip of Expressjs server
+#define EXPRESS_SERVER "http://192.168.22.147:4000" //change to the ip of Expressjs server
 
 ESP8266WiFiMulti WiFiMulti;
 bool readyToRequest;
 const String healthCheckUrl = String(EXPRESS_SERVER) + "/healthcheck";
-const String carEnteringUrl = String(EXPRESS_SERVER) + "/api/v1/cards/linked-vehicle?cardId=";
+const String carEnteringUrl = String(EXPRESS_SERVER) + "/api/v1/cards/linked-vehicle";
 const String updateParkingSlotUrl = String(EXPRESS_SERVER) + "/api/v1/parking-slots";
 WiFiClient client;
 HTTPClient http;
@@ -51,8 +51,9 @@ void requestToCheckCard (String cardId, String pos) {
   // return;
 
   http.setTimeout(30000);
-  String url = carEnteringUrl + encodeQueryParam(cardId) 
-              + "&gatePos=" + encodeQueryParam(pos);
+  String url = carEnteringUrl 
+              + "?card_id=" + encodeQueryParam(cardId) 
+              + "&gate_pos=" + encodeQueryParam(pos);
 
   if (!http.begin(client, url)) {
     readyToRequest = false;
