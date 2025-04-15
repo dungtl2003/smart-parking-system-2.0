@@ -5,7 +5,7 @@
 #include <WiFiClient.h>
 #include <ArduinoJson.h>
 
-#define EXPRESS_SERVER "http://192.168.22.147:4000" //change to the ip of Expressjs server
+#define EXPRESS_SERVER "http://192.168.22.82:4000" //change to the ip of Expressjs server
 
 ESP8266WiFiMulti WiFiMulti;
 bool readyToRequest;
@@ -61,7 +61,7 @@ void requestToCheckCard (String cardId, String pos) {
     return;
   }
 
-  Serial.println("[HTTP] GET: " + url);
+  Serial.println("[HTTP] GET: request to check card");
   int httpCode = http.GET();
 
   if (httpCode > 0) {
@@ -98,7 +98,7 @@ void requestToUpdateParkingState (String value) {
   http.setTimeout(30000);
   if (http.begin(client, updateParkingSlotUrl)) {
     http.addHeader("Content-Type", "application/json");
-    Serial.println("[HTTP] PUT: " + updateParkingSlotUrl);
+    Serial.println("[HTTP] PUT: updateParkingSlotUrl");
     String payload = "{\"states\":\"" + value +  "\"}";
     int httpCode = http.PUT(payload);
     
@@ -123,7 +123,7 @@ void pingToExpressServer () {
 
   http.setTimeout(2000);
   if (http.begin(client, healthCheckUrl)) {
-    Serial.println("[HTTP] GET: " + healthCheckUrl);
+    Serial.println("[HTTP] GET: health check");
     int httpCode = http.GET();
 
     if (httpCode > 0) {

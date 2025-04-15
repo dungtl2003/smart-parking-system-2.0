@@ -93,7 +93,7 @@ int getBitAt (int srcNum, int index){
 }
 
 void truncateNBitsEnd (int &srcNum, int n){
-  srcNum >= n;
+  srcNum = srcNum >> n;
 }
 
 void appendBit (int &srcNum, int value){
@@ -214,6 +214,7 @@ void consumeESPCommand (void *pvParameters) {
     }
 
     String input = Serial.readStringUntil('\n');
+    // Serial.println("received command:"+input);
     int separatorIndex = input.indexOf(':');
 
     if (separatorIndex == -1) {
@@ -479,8 +480,8 @@ void sensorRFIDFusion (void *pvParameters) {
   int gateSensorStates = 0;
   int gate = -1;
   int result;
-  bool entryScannble = true;
-  bool exitScannable = true;
+  bool entryGateUnopen = true;
+  bool exitGateUnopen = true;
 
   while (1){
     xQueuePeek(gateStateQueue,&gateSensorStates, 0);
@@ -491,46 +492,52 @@ void sensorRFIDFusion (void *pvParameters) {
 
     // if that gate's barrier is open, that side is unscannable 
     if(xSemaphoreTake(validEntryScanningSE, 0) == pdTRUE){
-      entryScannble = false; 
+      entryGateUnopen = false; 
     }
     if(xSemaphoreTake(validExitScanningSE, 0) == pdTRUE){
-      exitScannable = false; 
+      exitGateUnopen = false; 
     }
     // if both sensors of that gate detects not thing, that side will return to scannable 
-    if(!entryScannble 
+    if(!entryGateUnopen 
       && !getBitAt(gateSensorStates, 5) 
       && !getBitAt(gateSensorStates, 4)){
-      entryScannble = true; 
+      entryGateUnopen = true; 
     }
-    if(!exitScannable 
+    if(!exitGateUnopen 
       && !getBitAt(gateSensorStates, 2) 
       && !getBitAt(gateSensorStates, 1)){
-      exitScannable = true; 
+      exitGateUnopen = true; 
     }
 
     // decide the priority of gate for scanning
     if(getBitAt(gateSensorStates, 5) && !getBitAt(gateSensorStates, 2)){
-      gate = ENTRY_GATE;
+      gate = entryGateUnopen ? ENTRY_GATE : -1;
+
     } else if(!getBitAt(gateSensorStates, 5) && getBitAt(gateSensorStates, 2)){
-      gate = EXIT_GATE;
+      gate = exitGateUnopen ? EXIT_GATE : -1;
+
     } else if(!getBitAt(gateSensorStates, 5) && !getBitAt(gateSensorStates, 2)){
       gate = -1;
+
     } else {
-      if(entryScannble && exitScannable){
-        if(gate == ENTRY_GATE){
+      if(entryGateUnopen && exitGateUnopen){
+        if(gate == -1){
+          // run in here only when cars in both ways reach the sensor at the same time
           gate = EXIT_GATE;
-        } else {
-          gate = ENTRY_GATE;
         }
-      }else if(entryScannble || exitScannable){
-        gate = entryScannble ? ENTRY_GATE: EXIT_GATE;
+
+      }else if(entryGateUnopen || exitGateUnopen){
+        gate = entryGateUnopen ? ENTRY_GATE: EXIT_GATE;
+        
       }
     }
 
-    if((entryScannble || exitScannable)
-      && (gate != -1)
-      && xQueueReceive(cardInfoQueue,&cardIndex, 0))
-    { // productRFIDFusion: go in here if card is detected and entry gate`s front Sensor or exit gate`s front Sensor detected signal
+    //handle case that both sensors are detected when start the whold system
+
+    if(xQueueReceive(cardInfoQueue,&cardIndex, 0)
+      && (entryGateUnopen || exitGateUnopen)
+      && (gate != -1))
+    { // productRFIDFusion: run in here if card is detected and entry gate`s front Sensor or exit gate`s front Sensor detected signal
       appendBit(cardIndex, gate); // append the gate value to the end of cardIndex's bits
       result = xQueueSend(cardWithSpecificGateQueue, &cardIndex, portMAX_DELAY);
       if(result == errQUEUE_FULL){
@@ -546,7 +553,7 @@ void sensorRFIDFusion (void *pvParameters) {
         }
       }
     }
-
+    // vTaskDelay(100/MS_PER_TICK);
   }
 }
 
