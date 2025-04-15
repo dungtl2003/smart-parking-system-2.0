@@ -6,10 +6,10 @@ import {
   ScrollToTopButton,
   TopBarProgress,
 } from "@/components/effect";
-import UserHeader from "./user-header";
+import HomepageHeader from "./homepage-header";
 import AppFooter from "./app-footer";
 
-const UserLayout: React.FC = () => {
+const HomepageLayout: React.FC = () => {
   const navigation = useNavigation();
 
   return (
@@ -17,7 +17,7 @@ const UserLayout: React.FC = () => {
       <ScrollToTop />
       <div className="py-5 bg-[url('homepage_bg.jpg')] bg-cover bg-fixed bg-center relative">
         <div className="absolute inset-0 bg-black bg-opacity-50"></div>
-        <UserHeader className="z-50 relative" />
+        <HomepageHeader className="z-50 relative" />
         <div className="relative flex justify-center w-full py-10 min-h-[70vh] gap-6 4xl_gap-10">
           {navigation.state === "loading" ? <TopBarProgress /> : <Outlet />}
         </div>
@@ -34,4 +34,4 @@ const UserLayout: React.FC = () => {
   );
 };
 
-export default UserLayout;
+export default HomepageLayout;

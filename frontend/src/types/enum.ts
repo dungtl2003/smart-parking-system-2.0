@@ -16,4 +16,9 @@ enum SchemaResponse {
   PASSWORD_INVALID = "Type at least 6 characters",
 }
 
-export { Role, SlotStatus, SchemaResponse };
+enum CardScanningType {
+  CHECKIN = "CHECKIN",
+  CHECKOUT = "CHECKOUT",
+}
+
+export { Role, SlotStatus, SchemaResponse, CardScanningType };

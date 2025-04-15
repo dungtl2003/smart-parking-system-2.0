@@ -1,2 +1,2 @@
-export { default as UserLayout } from "./user-layout";
-export { default as AdminLayout } from "./admin-layout";
+export { default as HomepageLayout } from "./homepage-layout";
+export { default as ManagementLayout } from "./management-layout";

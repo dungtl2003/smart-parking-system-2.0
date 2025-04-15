@@ -1,4 +1,4 @@
-import { Role, SlotStatus } from "@/types/enum";
+import { CardScanningType, Role, SlotStatus } from "@/types/enum";
 
 export type Card = {
   cardId: string;
@@ -6,6 +6,8 @@ export type Card = {
   name: string;
   userId: string | null;
   user?: User;
+  lastCheckinTime: Date | null;
+  lastCheckoutTime: Date | null;
 };
 
 export type User = {
@@ -44,3 +46,17 @@ export type Video = {
   createdAt: string;
   url: string;
 };
+
+export interface CardInOut {
+  cardId: string;
+  type: CardScanningType;
+  time: Date;
+}
+
+export interface CheckinLog {
+  id: string;
+  cardId: string;
+  licensePlate: string;
+  type: CardScanningType;
+  createdAt: Date;
+}

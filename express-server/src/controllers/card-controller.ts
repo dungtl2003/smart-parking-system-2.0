@@ -5,6 +5,9 @@ import {Request, Response} from "express";
 import {StatusCodes} from "http-status-codes";
 import axios, {AxiosError} from "axios";
 import config from "@/common/app-config";
+import {CardScanningType} from "@prisma/client";
+import checkinLogService from "@/services/checkin-log-service";
+import socketService from "@/services/socket-service";
 
 const getCards = async (req: Request, res: Response) => {
     const available = Number(req.query.available);
@@ -72,18 +75,53 @@ const validateCard = async (req: Request, res: Response) => {
     //     message: "Failed to validate car license plate",
     // });
     try {
-        const scanResult = await axios.post<{status: "valid" | "invalid"}>(
-            config.CAMERA_SERVER_API + `?timeout=5000`,
-            {
-                plate_number: vehicle.licensePlate,
-                gate_pos: gatePos,
+        // const scanResult = await axios.post<{status: "valid" | "invalid"}>(
+        //     config.CAMERA_SERVER_API + `?timeout=5000`,
+        //     {
+        //         plate_number: vehicle.licensePlate,
+        //         gate_pos: gatePos,
+        //     },
+        //     {
+        //         timeout: 30000,
+        //     }
+        // );
+        // console.debug(`python server response: ${scanResult}`);
+
+        //test
+        const scanResult = {
+            data: {
+                status: "valid",
             },
-            {
-                timeout: 30000,
-            }
-        );
-        console.debug(`python server response: ${scanResult}`);
-        if (scanResult.data.status == "invalid") throw new AxiosError();
+        };
+
+        if (scanResult.data.status == "valid") {
+            const currentTime: Date = new Date();
+            const cardScanningType =
+                gatePos == `R`
+                    ? CardScanningType.CHECKIN
+                    : CardScanningType.CHECKOUT;
+
+            cardService.updateCardInOutTime(
+                vehicle.cardId,
+                cardScanningType,
+                currentTime
+            );
+            checkinLogService.insertLog({
+                cardId: vehicle.cardId,
+                licensePlate: vehicle.licensePlate,
+                type: cardScanningType,
+                createdAt: currentTime,
+            });
+            socketService.emitToCardListPageRoom({
+                card: {
+                    cardId: vehicle.cardId,
+                    type: cardScanningType,
+                    time: currentTime,
+                },
+            });
+        } else {
+            throw new AxiosError();
+        }
     } catch (error) {
         if (axios.isAxiosError(error)) {
             return res.status(StatusCodes.UNPROCESSABLE_ENTITY).json({

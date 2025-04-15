@@ -8,7 +8,7 @@ import useCurrentUser from "@/hooks/use-current-user";
 import { cn } from "@/lib/utils";
 import { LinkItem } from "@/types/component";
 
-const UserHeader: FC<HTMLAttributes<HTMLHeadElement>> = ({ ...props }) => {
+const HomepageHeader: FC<HTMLAttributes<HTMLHeadElement>> = ({ ...props }) => {
   const { logout } = useAuth();
   const { currentUser } = useCurrentUser();
   const { location } = useCustomNavigate();
@@ -72,6 +72,15 @@ const UserHeader: FC<HTMLAttributes<HTMLHeadElement>> = ({ ...props }) => {
           />
           <DropMenuLinkItem
             item={{
+              name: "SignedIn View",
+              src: "/logs",
+              visible: [Role.STAFF, Role.ADMIN].includes(currentUser.role)
+                ? false
+                : true,
+            }}
+          />
+          <DropMenuLinkItem
+            item={{
               name: "Logout",
               visible: true,
               handleClick: async () => {
@@ -97,4 +106,4 @@ const UserHeader: FC<HTMLAttributes<HTMLHeadElement>> = ({ ...props }) => {
   );
 };
 
-export default UserHeader;
+export default HomepageHeader;

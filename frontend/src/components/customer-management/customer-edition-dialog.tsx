@@ -11,32 +11,33 @@ import { buttonVariants } from "@/utils/constants";
 import { Label } from "@/components/ui/label";
 import { SubmitHandler, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CustomerFormProps, customerSchema } from "@/utils/schema";
 import { cn } from "@/lib/utils";
 import { LoadingSpinner } from "@/components/effect";
 import { Button } from "@/components/ui/button";
 import { Customer } from "@/types/model";
 import { toast } from "sonner";
 import { ActionResult } from "@/types/component";
+import {
+  CustomerEditionFormProps,
+  customerEditionSchema,
+} from "@/utils/schema";
 
-interface CustomerActionDialogProps extends HTMLAttributes<HTMLDivElement> {
+interface CustomerEditionDialogProps extends HTMLAttributes<HTMLDivElement> {
   customer?: Customer;
-  type: `Edit` | `Add`;
-  onSave: (data: CustomerFormProps) => Promise<ActionResult>;
+  onSave: (data: CustomerEditionFormProps) => Promise<ActionResult>;
 }
 
-const CustomerActionDialog: React.FC<CustomerActionDialogProps> = ({
+const CustomerEditionDialog: React.FC<CustomerEditionDialogProps> = ({
   className,
   ...props
 }) => {
   const {
     register,
     handleSubmit,
-    reset,
     setValue,
     formState: { errors, isSubmitting },
-  } = useForm<CustomerFormProps>({
-    resolver: zodResolver(customerSchema),
+  } = useForm<CustomerEditionFormProps>({
+    resolver: zodResolver(customerEditionSchema),
     defaultValues: props.customer && {
       username: props.customer.username,
     },
@@ -50,13 +51,12 @@ const CustomerActionDialog: React.FC<CustomerActionDialogProps> = ({
     }
   }, [props.customer, setValue]);
 
-  const handleFormSubmission: SubmitHandler<CustomerFormProps> = async (
+  const handleFormSubmission: SubmitHandler<CustomerEditionFormProps> = async (
     data
   ) => {
     const result = await props.onSave(data);
     if (result.status) {
       toast.success(result.message);
-      props.type == `Add` && reset();
       setIsOpen(false);
     } else toast.error(result.message);
   };
@@ -73,9 +73,7 @@ const CustomerActionDialog: React.FC<CustomerActionDialogProps> = ({
       <DialogTrigger asChild>{props.children}</DialogTrigger>
       <DialogContent className="min-w-[30rem]">
         <DialogHeader className="min-h-10 mb-2">
-          <DialogTitle className="text-[1.5rem]">
-            {props.type} Customer Profile
-          </DialogTitle>
+          <DialogTitle className="text-[1.5rem]">Edi</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(handleFormSubmission)}>
           <div className="flex flex-col gap-4">
@@ -135,4 +133,4 @@ const CustomerActionDialog: React.FC<CustomerActionDialogProps> = ({
   );
 };
 
-export default CustomerActionDialog;
+export default CustomerEditionDialog;

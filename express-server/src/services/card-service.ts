@@ -5,7 +5,7 @@ import {CardVehicle} from "@/common/types";
 import CardNotFoundError from "@/errors/card/card-not-found";
 import CardNotLinkedError from "@/errors/card/card-not-linked";
 import RunoutOfCardError from "@/errors/card/run-out-of-card";
-import {Card, Vehicle} from "@prisma/client";
+import {Card, CardScanningType, Vehicle} from "@prisma/client";
 
 const getCardLinkedToVehicle = async (
     cardCode: string
@@ -75,6 +75,18 @@ const getCards = async (params: {userId?: null | string}): Promise<Card[]> => {
     return cards;
 };
 
+const getCardIds = async (params: {userId: string}): Promise<string[]> => {
+    const cards = await prisma.card.findMany({
+        where: {
+            userId: params.userId,
+        },
+        select: {
+            cardId: true,
+        },
+    });
+    return cards.map((e) => e.cardId);
+};
+
 const isOccupied = async (cardId: string): Promise<boolean> => {
     const card = await prisma.card.findFirst({
         where: {
@@ -110,6 +122,24 @@ const updateCard = async (
     });
 
     return card;
+};
+
+const updateCardInOutTime = async (
+    cardId: string,
+    type: CardScanningType,
+    time: Date
+) => {
+    await prisma.card.update({
+        where: {
+            cardId: cardId,
+        },
+        data: {
+            lastCheckinTime:
+                type == CardScanningType.CHECKIN ? time : undefined,
+            lastCheckoutTime:
+                type == CardScanningType.CHECKOUT ? time : undefined,
+        },
+    });
 };
 
 const insertCard = async (validPayload: CardInsertion): Promise<Card> => {
@@ -166,8 +196,10 @@ const deleteCard = async (cardId: string): Promise<void> => {
 export default {
     getCards,
     updateCard,
+    updateCardInOutTime,
     insertCard,
     deleteCard,
     isOccupied,
     getCardLinkedToVehicle,
+    getCardIds,
 };

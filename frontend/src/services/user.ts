@@ -1,7 +1,11 @@
 import { AxiosResponse } from "axios";
 import { axiosInstance } from "@/config/axios-config";
 import { Card, Customer, Staff, User, Vehicle } from "@/types/model";
-import { CustomerFormProps, StaffFormProps } from "@/utils/schema";
+import {
+  CustomerAdditionFormProps,
+  CustomerEditionFormProps,
+  StaffFormProps,
+} from "@/utils/schema";
 import { Args } from "@/utils/helpers";
 import { Role } from "@/types/enum";
 
@@ -31,12 +35,15 @@ const userService = {
         }>(customerEndPoint);
         return res.data.info;
       },
-      createCustomer: async (data: CustomerFormProps): Promise<Customer> => {
+      createCustomer: async (
+        data: CustomerAdditionFormProps
+      ): Promise<Customer> => {
         const response = await axiosInstance.post<{ info: Customer }>(
           `${customerEndPoint}/signup`,
           {
             username: data.username.trim(),
             email: data.email.trim(),
+            password: data.password.trim(),
           }
         );
 
@@ -44,7 +51,7 @@ const userService = {
       },
       updateCustomer: async (
         customerId: string,
-        data: CustomerFormProps
+        data: CustomerEditionFormProps
       ): Promise<Customer> => {
         const res = await axiosInstance.put<{ info: Customer }>(
           `${customerEndPoint}/${customerId}`,

@@ -1,4 +1,4 @@
-import type {ParkingSlot, UserRole} from "@prisma/client";
+import type {CardScanningType, ParkingSlot, UserRole} from "@prisma/client";
 
 export interface UserDTO {
     userId: string;
@@ -20,10 +20,18 @@ export interface CardVehicle {
     username: string;
 }
 
+export interface CardInOut {
+    cardId: string;
+    type: CardScanningType;
+    time: Date;
+}
+
 export interface ClientEvents {
     "user:join": () => void;
     "user:leave": () => void;
     "reconnect:sync": (latestId: number) => void;
+    "cardlist-page:join": () => void;
+    "cardlist-page:leave": () => void;
 }
 
 export interface ServerEvents {
@@ -31,4 +39,5 @@ export interface ServerEvents {
         payload: {parkingStates: ParkingSlot[]},
         offSet: number
     ) => void;
+    "card:update": (payload: {card: CardInOut}) => void;
 }

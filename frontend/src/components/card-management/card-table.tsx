@@ -18,8 +18,16 @@ import { Card } from "@/types/model";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import TableContextMenu from "@/components/common/table-context-menu";
+import { getDateTimeString } from "@/utils/helpers";
 
-const columnHeaders = ["", "CARD ID", "CUSTOM NAME", "CUSTOMER"];
+const columnHeaders = [
+  "",
+  "CARD ID",
+  "CUSTOM NAME",
+  "CUSTOMER",
+  "LATEST CHECKIN",
+  "LATEST CHECKOUT",
+];
 
 interface CardTableProps extends HTMLAttributes<HTMLTableElement> {
   cards: Card[];
@@ -82,6 +90,16 @@ const CardTable: FC<CardTableProps> = ({ ...props }) => {
                   </TableCell>
                   <TableCell className="text-center text-base">
                     {card.user ? card.user.username : "_"}
+                  </TableCell>
+                  <TableCell className="text-center text-base">
+                    {card.lastCheckinTime
+                      ? getDateTimeString(card.lastCheckinTime)
+                      : "_"}
+                  </TableCell>
+                  <TableCell className="text-center text-base">
+                    {card.lastCheckoutTime
+                      ? getDateTimeString(card.lastCheckoutTime)
+                      : "_"}
                   </TableCell>
                 </TableRow>
               ))}

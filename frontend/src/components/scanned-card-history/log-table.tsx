@@ -1,4 +1,4 @@
-import { FC, HTMLAttributes, useEffect, useState } from "react";
+import { FC, HTMLAttributes, useState } from "react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   Table,
@@ -8,42 +8,33 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatDateTime } from "@/utils/helpers";
-import { Customer } from "@/types/model";
+import { Card as CardWrapper, CardContent } from "@/components/ui/card";
+import { CheckinLog } from "@/types/model";
 import { cn } from "@/lib/utils";
-import { Separator } from "../ui/separator";
-import { userService } from "@/services";
+import { Separator } from "@/components/ui/separator";
+import TableContextMenu from "@/components/common/table-context-menu";
+import { getDateTimeString } from "@/utils/helpers";
+import { CardScanningType } from "@/types/enum";
 
-const columnHeaders = ["", "CUSTOMER", "EMAIL", "REGISTERED DATE", "STATUS"];
+const columnHeaders = ["CARD ID", "LICENSE PLATE", "IN/OUT", "TIME"];
 
-interface CustomerTableProps extends HTMLAttributes<HTMLTableElement> {
-  customers: Customer[];
-  defaultSelectedCustomer?: Customer;
-  onSelectCustomer?: (customer: Customer) => void;
+interface LogTableProps extends HTMLAttributes<HTMLTableElement> {
+  logs: CheckinLog[];
+  onSelectLog?: (log: CheckinLog) => void;
 }
 
-const CustomerTable: FC<CustomerTableProps> = ({ ...props }) => {
-  const [selectedCustomer, setSelectedCustomer] = useState<
-    Customer | undefined
-  >();
+const LogTable: FC<LogTableProps> = ({ ...props }) => {
+  const [selectedLog, setSelectedLog] = useState<CheckinLog | undefined>();
 
-  useEffect(() => {
-    setSelectedCustomer(props.defaultSelectedCustomer);
-  }, [props.defaultSelectedCustomer]);
-
-  const handleSelectCustomer = (customer: Customer) => {
-    setSelectedCustomer(customer);
-    props.onSelectCustomer && props.onSelectCustomer(customer);
+  const handleSelectCard = (log: CheckinLog) => {
+    setSelectedLog(log);
+    props.onSelectLog && props.onSelectLog(log);
   };
 
   return (
-    <Card className={cn("rounded-2xl shadow-lg", props.className)}>
-      <CardHeader className="py-6">
-        <CardTitle className="text-8">CUSTOMER LIST</CardTitle>
-      </CardHeader>
+    <CardWrapper className={cn("rounded-2xl shadow-lg", props.className)}>
       <CardContent className="flex flex-col px-4">
-        <ScrollArea className="relavtive h-[58vh] pr-3 pb-3">
+        <ScrollArea className="relavtive h-[58vh]">
           <Table>
             <TableHeader className="z-10 border-b-secondary-foreground border-b-2 sticky top-0 bg-white shadow-lg">
               <tr>
@@ -60,27 +51,25 @@ const CustomerTable: FC<CustomerTableProps> = ({ ...props }) => {
               </tr>
             </TableHeader>
             <TableBody>
-              {props.customers.map((customer, index) => (
+              {props.logs.map((log, index) => (
                 <TableRow
                   key={index}
                   className={cn(
                     "cursor-pointer",
-                    selectedCustomer?.userId === customer.userId &&
-                      "bg-slate-200"
+                    selectedLog?.id == log.id && "bg-slate-200"
                   )}
-                  onClick={() => handleSelectCustomer(customer)}
+                  onClick={() => handleSelectCard(log)}
                 >
                   <TableCell className="text-center text-base">
-                    {index + 1}
+                    <TableContextMenu
+                      textToCopy={log.cardId}
+                      className="h-full"
+                    >
+                      {log.cardId}
+                    </TableContextMenu>
                   </TableCell>
                   <TableCell className="text-center text-base">
-                    {customer.username}
-                  </TableCell>
-                  <TableCell className="text-center text-base">
-                    {customer.email}
-                  </TableCell>
-                  <TableCell className="text-center text-base 2xl_text-nowrap">
-                    {formatDateTime(`${customer.createdAt}`)}
+                    {log.licensePlate}
                   </TableCell>
                   <TableCell className="text-center text-base">
                     <div
@@ -91,15 +80,16 @@ const CustomerTable: FC<CustomerTableProps> = ({ ...props }) => {
                       <span
                         className={cn(
                           "absolute left-2 my-auto h-3 w-3 rounded-full translate-y-1/2",
-                          userService.isActive(customer)
+                          log.type == CardScanningType.CHECKIN
                             ? "bg-green-500"
                             : "bg-red-600"
                         )}
                       />
-                      {userService.isActive(customer)
-                        ? "Activate"
-                        : "Inactivate"}
+                      {log.type}
                     </div>
+                  </TableCell>
+                  <TableCell className="text-center text-base">
+                    {getDateTimeString(log.createdAt)}
                   </TableCell>
                 </TableRow>
               ))}
@@ -113,8 +103,8 @@ const CustomerTable: FC<CustomerTableProps> = ({ ...props }) => {
           <ScrollBar orientation="horizontal" />
         </ScrollArea>
       </CardContent>
-    </Card>
+    </CardWrapper>
   );
 };
 
-export default CustomerTable;
+export default LogTable;

@@ -532,8 +532,6 @@ void sensorRFIDFusion (void *pvParameters) {
       }
     }
 
-    //handle case that both sensors are detected when start the whold system
-
     if(xQueueReceive(cardInfoQueue,&cardIndex, 0)
       && (entryGateUnopen || exitGateUnopen)
       && (gate != -1))

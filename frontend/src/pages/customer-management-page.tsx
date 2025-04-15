@@ -6,9 +6,12 @@ import {
   CustomerTable,
   CustomerToolBar,
 } from "@/components/customer-management";
-import { CustomerFormProps } from "@/utils/schema";
 import axios, { HttpStatusCode } from "axios";
 import { ActionResult } from "@/types/component";
+import {
+  CustomerAdditionFormProps,
+  CustomerEditionFormProps,
+} from "@/utils/schema";
 
 const CustomerManagement: FC = () => {
   const initData = useRouteLoaderData("customer-management") as Customer[];
@@ -45,7 +48,7 @@ const CustomerManagement: FC = () => {
   };
 
   const handleUpdateCustomer = async (
-    data: CustomerFormProps
+    data: CustomerEditionFormProps
   ): Promise<ActionResult> => {
     try {
       const updatedCustomer = await userService.apis.customer.updateCustomer(
@@ -75,7 +78,7 @@ const CustomerManagement: FC = () => {
   };
 
   const handleAddCustomer = async (
-    data: CustomerFormProps
+    data: CustomerAdditionFormProps
   ): Promise<ActionResult> => {
     try {
       const newCustomer = await userService.apis.customer.createCustomer(data);

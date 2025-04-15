@@ -1,7 +1,8 @@
 import { AxiosResponse } from "axios";
 import { axiosInstance } from "@/config/axios-config";
-import { Card } from "@/types/model";
+import { Card, CardInOut } from "@/types/model";
 import { CardFormProps } from "@/utils/schema";
+import { CardScanningType } from "@/types/enum";
 
 const cardEndPoint = "/cards";
 
@@ -50,6 +51,24 @@ const cardService = {
       selectedCard,
       ...prevCards.filter((e) => e.cardId !== selectedCard.cardId),
     ];
+  },
+  updateCardTime: (cardList: Card[], data: CardInOut): Card[] => {
+    return cardList.map((e) => {
+      if (e.cardId == data.cardId) {
+        return {
+          ...e,
+          lastCheckinTime:
+            data.type == CardScanningType.CHECKIN
+              ? data.time
+              : e.lastCheckinTime,
+          lastCheckoutTime:
+            data.type == CardScanningType.CHECKOUT
+              ? data.time
+              : e.lastCheckoutTime,
+        };
+      }
+      return e;
+    });
   },
   deleteCard: (selectedCard: Card, prevCards: Card[]) => {
     return [...prevCards.filter((e) => e.cardId !== selectedCard.cardId)];

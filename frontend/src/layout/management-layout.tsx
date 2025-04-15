@@ -1,7 +1,7 @@
 import { ScrollToTop, TopBarProgress } from "@/components/effect";
 import { Outlet, useNavigation } from "react-router-dom";
 import { Toaster } from "sonner";
-import StaffHeader from "./admin-header";
+import StaffHeader from "./management-header";
 import AppFooter from "./app-footer";
 
 const AdminLayout: React.FC = () => {

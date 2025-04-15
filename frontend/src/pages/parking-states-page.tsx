@@ -97,7 +97,7 @@ const ParkingStatesPage: FC = () => {
     ) => {
       currentStateNumber.current = offSet;
       payload.parkingStates.forEach((slotNewState) => {
-        console.log(payload.parkingStates);
+        // console.log(payload.parkingStates);
         const carElement = document.getElementById(`car${slotNewState.slotId}`);
 
         if (carElement) {
@@ -123,11 +123,11 @@ const ParkingStatesPage: FC = () => {
 
     socket?.on("connect", () => {
       setup();
-      socket.emit("user:join");
       socket.emit("reconnect:sync", currentStateNumber.current);
     });
     socket?.on("parking-slot:update", listenToStateChange);
     setup();
+
     return () => {
       socket?.off(`parking-slot:update`);
       socket?.off(`connect`);

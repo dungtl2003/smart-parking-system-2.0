@@ -14,7 +14,10 @@ const StaffHeader: FC = () => {
     {
       name: "Customers",
       src: "/customers",
-      visible: true,
+      visible:
+        currentUser && [Role.STAFF, Role.ADMIN].includes(currentUser.role)
+          ? true
+          : false,
     },
     {
       name: "Staffs",
@@ -24,12 +27,27 @@ const StaffHeader: FC = () => {
     {
       name: "Cards",
       src: "/cards",
-      visible: true,
+      visible:
+        currentUser && [Role.STAFF, Role.ADMIN].includes(currentUser.role)
+          ? true
+          : false,
+    },
+    {
+      name: "Scanned Logs",
+      src: "/logs",
+      visible:
+        currentUser &&
+        [Role.CUSTOMER, Role.STAFF, Role.ADMIN].includes(currentUser.role)
+          ? true
+          : false,
     },
     {
       name: "Videos",
       src: "/videos",
-      visible: true,
+      visible:
+        currentUser && [Role.STAFF, Role.ADMIN].includes(currentUser.role)
+          ? true
+          : false,
     },
   ]);
   const selectedRoute = useMemo<string>(

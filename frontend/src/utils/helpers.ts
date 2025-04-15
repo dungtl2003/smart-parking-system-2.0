@@ -19,6 +19,23 @@ const formatDateTime = (dateString: string): string => {
   return `${hours}:${minutes}:${seconds} - ${day}/${month}/${year}`;
 };
 
+const getDateTimeString = (date: Date): string => {
+  if (typeof date == `string`) {
+    date = new Date(date);
+  }
+  const padZero = (num: number) => String(num).padStart(2, "0");
+
+  const hours = padZero(date.getHours());
+  const minutes = padZero(date.getMinutes());
+  const seconds = padZero(date.getSeconds());
+
+  const day = padZero(date.getDate());
+  const month = padZero(date.getMonth() + 1); // Months are zero-indexed
+  const year = date.getFullYear();
+
+  return `${hours}:${minutes}:${seconds} - ${day}/${month}/${year}`;
+};
+
 const getDateString = (date: Date): string => {
   const day = String(date.getDate()).padStart(2, "0");
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -39,4 +56,4 @@ const getPages = (rows: number, limit?: number): number => {
   return Math.ceil(rows / (limit || 10)); //default limit is 10
 };
 
-export { formatDateTime, getDateString, getPages, getDate };
+export { formatDateTime, getDateString, getPages, getDate, getDateTimeString };

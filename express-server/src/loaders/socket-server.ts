@@ -43,10 +43,6 @@ class SocketServer {
             console.log("[socket server]: Stopped");
         });
     }
-
-    private debug(msg: string): void {
-        this._debug && console.debug(`[socket server]: ${msg}`);
-    }
 }
 
 export default SocketServer;

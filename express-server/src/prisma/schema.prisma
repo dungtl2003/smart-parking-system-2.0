@@ -8,12 +8,14 @@ datasource db {
 }
 
 model Card {
-  cardId   String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  userId   String?  @db.Uuid
-  cardCode String
-  name     String   @db.VarChar(255)
-  user     User?    @relation(fields: [userId], references: [userId], onUpdate: NoAction)
-  vehicle  Vehicle?
+  cardId           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId           String?   @db.Uuid
+  cardCode         String
+  name             String    @db.VarChar(255)
+  lastCheckinTime  DateTime? @db.Timestamptz(6)
+  lastCheckoutTime DateTime? @db.Timestamptz(6)
+  user             User?     @relation(fields: [userId], references: [userId], onUpdate: NoAction)
+  vehicle          Vehicle?
 }
 
 model ParkingSlot {
@@ -49,6 +51,14 @@ model Video {
   createdAt DateTime @db.Timestamptz(6)
 }
 
+model CheckinLog {
+  id           String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  cardId       String           @db.Uuid
+  licensePlate String
+  type         CardScanningType
+  createdAt    DateTime         @db.Timestamptz(6)
+}
+
 enum UserRole {
   CUSTOMER
   STAFF
@@ -58,4 +68,9 @@ enum UserRole {
 enum SlotState {
   AVAILABLE
   UNAVAILABLE
+}
+
+enum CardScanningType {
+  CHECKIN
+  CHECKOUT
 }

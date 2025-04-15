@@ -6,8 +6,15 @@ const notBlankString = (validate: ZodString = z.string()) =>
     message: SchemaResponse.REQUIRED,
   });
 
-const customerSchema = z.object({
+const customerEditionSchema = z.object({
   username: notBlankString(),
+  email: notBlankString(z.string().email()),
+});
+
+const customerAdditionSchema = z.object({
+  username: notBlankString(),
+  password: notBlankString(z.string().min(6)),
+  retypepassword: notBlankString(z.string().min(6)),
   email: notBlankString(z.string().email()),
 });
 
@@ -30,10 +37,18 @@ const loginSchema = z.object({
 
 export type LoginFormProps = z.infer<typeof loginSchema>;
 
-export type CustomerFormProps = z.infer<typeof customerSchema>;
+export type CustomerEditionFormProps = z.infer<typeof customerEditionSchema>;
+
+export type CustomerAdditionFormProps = z.infer<typeof customerAdditionSchema>;
 
 export type CardFormProps = z.infer<typeof cardSchema>;
 
 export type StaffFormProps = z.infer<typeof staffSchema>;
 
-export { customerSchema, loginSchema, cardSchema, staffSchema };
+export {
+  customerEditionSchema,
+  customerAdditionSchema,
+  loginSchema,
+  cardSchema,
+  staffSchema,
+};
