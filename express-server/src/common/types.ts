@@ -20,10 +20,11 @@ export interface CardVehicle {
     username: string;
 }
 
-export interface CardInOut {
+export interface ScannedLog {
     cardId: string;
+    licensePlate: string;
     type: CardScanningType;
-    time: Date;
+    createdAt: Date;
 }
 
 export interface ClientEvents {
@@ -39,5 +40,5 @@ export interface ServerEvents {
         payload: {parkingStates: ParkingSlot[]},
         offSet: number
     ) => void;
-    "card:update": (payload: {card: CardInOut}) => void;
+    "card:update": (payload: {log: ScannedLog}) => void;
 }

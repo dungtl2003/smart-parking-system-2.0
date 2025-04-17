@@ -87,11 +87,33 @@ module.exports = {
           "0%,70%,100%": { opacity: "1" },
           "20%,50%": { opacity: "0" },
         },
+        pulseZoomBlue: {
+          "0%, 100%": {
+            transform: "scale(1)",
+            color: "#000000",
+          },
+          "50%": {
+            transform: "scale(1.2)",
+            color: "#3B82F6",
+          },
+        },
+        pulseZoomRed: {
+          "0%, 100%": {
+            transform: "scale(1)",
+            color: "#000000",
+          },
+          "50%": {
+            transform: "scale(1.2)",
+            color: "#EF4444",
+          },
+        },
       },
       animation: {
         "caret-blink": "caret-blink 1.25s ease-out infinite",
         fadeInScale: "fadeInScale 4s ease-out forwards",
         fadeInSlide: "fadeInSlide 2s ease-out forwards",
+        pulseZoomBlue: "pulseZoomBlue 2s ease-in-out 1",
+        pulseZoomRed: "pulseZoomRed 2s ease-in-out 1",
       },
       max: {
         sm: "50rem",

@@ -1,4 +1,4 @@
-import { FC, HTMLAttributes, useState } from "react";
+import { FC, HTMLAttributes } from "react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   Table,
@@ -9,7 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card as CardWrapper, CardContent } from "@/components/ui/card";
-import { CheckinLog } from "@/types/model";
+import { CheckinLog, ScannedLog } from "@/types/model";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import TableContextMenu from "@/components/common/table-context-menu";
@@ -19,18 +19,11 @@ import { CardScanningType } from "@/types/enum";
 const columnHeaders = ["CARD ID", "LICENSE PLATE", "IN/OUT", "TIME"];
 
 interface LogTableProps extends HTMLAttributes<HTMLTableElement> {
-  logs: CheckinLog[];
-  onSelectLog?: (log: CheckinLog) => void;
+  logs: (CheckinLog | ScannedLog)[];
+  newCardIsArrived: boolean;
 }
 
 const LogTable: FC<LogTableProps> = ({ ...props }) => {
-  const [selectedLog, setSelectedLog] = useState<CheckinLog | undefined>();
-
-  const handleSelectCard = (log: CheckinLog) => {
-    setSelectedLog(log);
-    props.onSelectLog && props.onSelectLog(log);
-  };
-
   return (
     <CardWrapper className={cn("rounded-2xl shadow-lg", props.className)}>
       <CardContent className="flex flex-col px-4">
@@ -52,14 +45,7 @@ const LogTable: FC<LogTableProps> = ({ ...props }) => {
             </TableHeader>
             <TableBody>
               {props.logs.map((log, index) => (
-                <TableRow
-                  key={index}
-                  className={cn(
-                    "cursor-pointer",
-                    selectedLog?.id == log.id && "bg-slate-200"
-                  )}
-                  onClick={() => handleSelectCard(log)}
-                >
+                <TableRow key={index} className={cn("cursor-pointer")}>
                   <TableCell className="text-center text-base">
                     <TableContextMenu
                       textToCopy={log.cardId}
@@ -88,7 +74,14 @@ const LogTable: FC<LogTableProps> = ({ ...props }) => {
                       {log.type}
                     </div>
                   </TableCell>
-                  <TableCell className="text-center text-base">
+                  <TableCell
+                    className={cn(
+                      "text-center text-base",
+                      index === 0 && props.newCardIsArrived
+                        ? "animate-pulseZoomRed"
+                        : ""
+                    )}
+                  >
                     {getDateTimeString(log.createdAt)}
                   </TableCell>
                 </TableRow>

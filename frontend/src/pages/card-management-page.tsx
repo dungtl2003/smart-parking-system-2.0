@@ -1,44 +1,21 @@
-import { Card, CardInOut } from "@/types/model";
-import { FC, useEffect, useState } from "react";
+import { Card } from "@/types/model";
+import { FC, useState } from "react";
 import { useRouteLoaderData } from "react-router-dom";
 import { CardTable, CardToolBar } from "@/components/card-management";
 import { CardFormProps } from "@/utils/schema";
 import axios, { HttpStatusCode } from "axios";
 import { cardService } from "@/services";
 import { ActionResult } from "@/types/component";
-import useSocket from "@/hooks/use-socket";
 
 const CardManagement: FC = () => {
   const initData = useRouteLoaderData("card-management") as Card[];
   const [cards, setCards] = useState<Card[]>(initData);
   const [selectedCard, setSelectedCard] = useState<Card | undefined>();
-  const { socket } = useSocket();
 
-  useEffect(() => {
-    const setup = async () => {
-      socket?.emit(`cardlist-page:join`);
-    };
-
-    const handleCardTimeChange = (payload: { card: CardInOut }) => {
-      setCards((preValue) =>
-        cardService.updateCardTime(preValue, payload.card)
-      );
-    };
-
-    //listening
-    socket?.on("connect", () => {
-      setup();
-      // socket.emit("reconnect:sync", currentStateNumber.current);
-    });
-    socket?.on("card:update", handleCardTimeChange);
-    setup();
-
-    return () => {
-      socket?.off(`card:update`);
-      socket?.off(`connect`);
-      socket?.emit(`cardlist-page:leave`);
-    };
-  }, []);
+  const handleRefreshButtonClicked = async () => {
+    const result = await cardService.apis.getCards();
+    setCards(result);
+  };
 
   const handleDeleteCard = async (): Promise<ActionResult> => {
     try {
@@ -115,9 +92,10 @@ const CardManagement: FC = () => {
 
         <CardToolBar
           selectedCard={selectedCard}
-          handleAddCard={handleAddCard}
-          handleUpdateCard={handleUpdateCard}
-          handleDeleteCard={handleDeleteCard}
+          onAddButtonClicked={handleAddCard}
+          onUpdateButtonClick={handleUpdateCard}
+          onDeleteButtonClicked={handleDeleteCard}
+          onRefreshButtonClicked={handleRefreshButtonClicked}
         />
       </div>
     </div>

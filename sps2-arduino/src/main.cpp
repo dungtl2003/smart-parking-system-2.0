@@ -482,9 +482,11 @@ void sensorRFIDFusion (void *pvParameters) {
   int result;
   bool entryGateUnopen = true;
   bool exitGateUnopen = true;
+  int slotState;
 
   while (1){
     xQueuePeek(gateStateQueue,&gateSensorStates, 0);
+    xQueuePeek(slotStateQueue, &slotState, 0);
     // bit 5th is the value of sensor which is futher to the parkinglot at the entry gate
     // bit 4th is the value of sensor which is closer to the parkinglot at the entry gate
     // bit 2nd is the value of sensor which is closer to the parkinglot at the exit gate
@@ -530,6 +532,11 @@ void sensorRFIDFusion (void *pvParameters) {
         gate = entryGateUnopen ? ENTRY_GATE: EXIT_GATE;
         
       }
+    }
+
+    if((gate == ENTRY_GATE) && (slotState == TOTAL_SLOTS_BITS_TO_INT)){
+      xQueueReceive(cardInfoQueue,&cardIndex, 0);
+      continue;
     }
 
     if(xQueueReceive(cardInfoQueue,&cardIndex, 0)

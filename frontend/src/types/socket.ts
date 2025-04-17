@@ -1,4 +1,4 @@
-import { CardInOut, ParkingSlot } from "./model";
+import { ParkingSlot, ScannedLog } from "./model";
 
 export interface SocketEmitError {
   status: number;
@@ -19,5 +19,5 @@ export interface ServerEvents {
     payload: { parkingStates: ParkingSlot[] },
     offSet: number
   ) => void;
-  "card:update": (payload: { card: CardInOut }) => void;
+  "card:update": (payload: { log: ScannedLog }) => void;
 }

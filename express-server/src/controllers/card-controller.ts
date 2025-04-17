@@ -8,6 +8,7 @@ import config from "@/common/app-config";
 import {CardScanningType} from "@prisma/client";
 import checkinLogService from "@/services/checkin-log-service";
 import socketService from "@/services/socket-service";
+import {ScannedLog} from "@/common/types";
 
 const getCards = async (req: Request, res: Response) => {
     const available = Number(req.query.available);
@@ -65,34 +66,25 @@ const validateCard = async (req: Request, res: Response) => {
     const vehicle = await cardService.getCardLinkedToVehicle(cardId);
     console.debug("Get vehicle from DB: ", vehicle);
 
-    //test
-    // return res.status(StatusCodes.OK).json({
-    //     message: ResponseMessage.SUCCESS,
-    //     info: "Huy",
-    // });
-
-    // return res.status(StatusCodes.UNPROCESSABLE_ENTITY).json({
-    //     message: "Failed to validate car license plate",
-    // });
     try {
-        // const scanResult = await axios.post<{status: "valid" | "invalid"}>(
-        //     config.CAMERA_SERVER_API + `?timeout=5000`,
-        //     {
-        //         plate_number: vehicle.licensePlate,
-        //         gate_pos: gatePos,
-        //     },
-        //     {
-        //         timeout: 30000,
-        //     }
-        // );
-        // console.debug(`python server response: ${scanResult}`);
+        const scanResult = await axios.post<{status: "valid" | "invalid"}>(
+            config.CAMERA_SERVER_API + `?timeout=5000`,
+            {
+                plate_number: vehicle.licensePlate,
+                gate_pos: gatePos,
+            },
+            {
+                timeout: 30000,
+            }
+        );
+        console.debug(`python server response: ${scanResult}`);
 
         //test
-        const scanResult = {
-            data: {
-                status: "valid",
-            },
-        };
+        // const scanResult = {
+        //     data: {
+        //         status: "valid",
+        //     },
+        // };
 
         if (scanResult.data.status == "valid") {
             const currentTime: Date = new Date();
@@ -101,23 +93,24 @@ const validateCard = async (req: Request, res: Response) => {
                     ? CardScanningType.CHECKIN
                     : CardScanningType.CHECKOUT;
 
+            //update time in card table
             cardService.updateCardInOutTime(
                 vehicle.cardId,
                 cardScanningType,
                 currentTime
             );
-            checkinLogService.insertLog({
+
+            const newLog: ScannedLog = {
                 cardId: vehicle.cardId,
                 licensePlate: vehicle.licensePlate,
                 type: cardScanningType,
                 createdAt: currentTime,
-            });
+            };
+            //insert new log to checkinLog table
+            checkinLogService.insertLog(newLog);
+            //emit new log to frontend
             socketService.emitToCardListPageRoom({
-                card: {
-                    cardId: vehicle.cardId,
-                    type: cardScanningType,
-                    time: currentTime,
-                },
+                log: newLog,
             });
         } else {
             throw new AxiosError();

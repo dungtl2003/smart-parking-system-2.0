@@ -30,7 +30,7 @@ class ExpressServer {
         this._app.use("*", errorHandler);
 
         this._server = createServer(this._app);
-        this._server.listen(port, () => {
+        this._server.listen(port, "0.0.0.0", () => {
             console.info(
                 `[express server]: Express server is running at port ${port}`
             );

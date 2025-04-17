@@ -13,8 +13,16 @@ while (clientDomain || clientPort) {
     ++counter;
     clientDomain = process.env[`CLIENT_DOMAIN_${counter}`];
     clientPort = process.env[`CLIENT_PORT_${counter}`];
-    console.log("client domain: " + clientDomain);
-    console.log("client port: " + clientPort);
+    if (clientDomain) {
+        console.info(
+            "[cors-config] client domain " + counter + ": " + clientDomain
+        );
+    }
+    if (clientPort) {
+        console.info(
+            "[cors-config] client port " + counter + ": " + clientPort
+        );
+    }
 }
 
 export const options: CorsOptions = {

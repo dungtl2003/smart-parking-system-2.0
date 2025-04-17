@@ -1,0 +1,66 @@
+services:
+  postgres-container:
+    image: postgres:16
+    container_name: postgres-container
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user"]
+      timeout: 10s
+      interval: 10s
+      retries: 10
+      start_period: 30s
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: user
+      POSTGRES_DB: mydb
+    command: postgres
+    networks:
+      - sps-network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  adminer:
+    image: adminer
+    container_name: adminer
+    depends_on:
+      - postgres-container
+    ports:
+      - "8081:8080"
+    networks:
+      - sps-network
+
+  sps-express-server:
+    image: huygia12/sps-express-server:v1
+    container_name: sps-express-server
+    ports:
+      - "4000:4000"
+    env_file:
+      - ./express-server/.env
+    depends_on:
+      postgres-container:
+        condition: service_healthy
+    networks:
+      - sps-network
+
+  sps-frontend:
+    image: huygia12/sps-frontend:v1
+    container_name: sps-frontend
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./frontend/.env
+    depends_on:
+      postgres-container:
+        condition: service_healthy
+      sps-express-server:
+        condition: service_healthy
+    networks:
+      - sps-network
+
+networks:
+  sps-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

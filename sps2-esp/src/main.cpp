@@ -5,7 +5,7 @@
 #include <WiFiClient.h>
 #include <ArduinoJson.h>
 
-#define EXPRESS_SERVER "http://192.168.22.82:4000" //change to the ip of Expressjs server
+#define EXPRESS_SERVER "http://192.168.22.73:4000" //change to the ip of Expressjs server
 
 ESP8266WiFiMulti WiFiMulti;
 bool readyToRequest;

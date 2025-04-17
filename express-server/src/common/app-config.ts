@@ -13,9 +13,9 @@ const envConfig = dotenv.config({
 });
 
 if (envConfig.error) {
-    console.error("[app-config]: Cannot find .env file");
+    console.info("[app-config] Cannot find .env file with dotenv");
 } else {
-    console.info("[app-config]: Using .env file to load environment variables");
+    console.info("[app-config] Using .env file to load environment variables");
 }
 
 process.env.NODE_ENV = process.env.NODE_ENV || "development";
@@ -31,5 +31,9 @@ const config: Config = {
     RT_KEY: `${process.env.RT_SECRET_KEY}`,
     CAMERA_SERVER_API: `${process.env.CAMERA_SERVER_API}`,
 };
+
+if (config.CAMERA_SERVER_API) {
+    console.info("[app-config] CAMERA_SERVER_API=" + config.CAMERA_SERVER_API);
+}
 
 export default config;

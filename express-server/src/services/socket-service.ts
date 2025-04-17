@@ -1,4 +1,4 @@
-import {CardInOut, ClientEvents, ServerEvents} from "@/common/types";
+import {ScannedLog, ClientEvents, ServerEvents} from "@/common/types";
 import {ParkingSlot} from "@prisma/client";
 import {Server} from "socket.io";
 
@@ -91,7 +91,7 @@ const emitToParkingRoom = (data: {parkingStates: ParkingSlot[]}) => {
     lastParkingStates = data.parkingStates;
 };
 
-const emitToCardListPageRoom = (data: {card: CardInOut}) => {
+const emitToCardListPageRoom = (data: {log: ScannedLog}) => {
     if (!io) {
         console.debug(
             `[socket-service] emitToCardListPageRoom: io unavailable`

@@ -47,10 +47,11 @@ export type Video = {
   url: string;
 };
 
-export interface CardInOut {
+export interface ScannedLog {
   cardId: string;
+  licensePlate: string;
   type: CardScanningType;
-  time: Date;
+  createdAt: Date;
 }
 
 export interface CheckinLog {

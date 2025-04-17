@@ -5,13 +5,10 @@ import { useState } from "react";
 import { SlotStatus } from "@/types/enum";
 import useSocket from "@/hooks/use-socket";
 import { FC, useEffect, useRef } from "react";
-import { useCurrentUser } from "@/hooks";
-import { userService } from "@/services";
+import { cn } from "@/lib/utils";
 
 const ParkingStatesPage: FC = () => {
   const initData = useRouteLoaderData("parking-status") as ParkingSlot[];
-  const [w, setW] = useState<number>();
-  const [h, setH] = useState<number>();
   const constantW = useRef<number>(0);
   const [slotList, setSlotList] = useState<ParkingSlot[]>(initData);
   const parkingSpaceRef = useRef<HTMLDivElement>(null);
@@ -19,12 +16,9 @@ const ParkingStatesPage: FC = () => {
   const secondLineRef = useRef<HTMLDivElement>(null);
   const { socket } = useSocket();
   const currentStateNumber = useRef<number>(0);
-  const { currentUser } = useCurrentUser();
 
   useEffect(() => {
     if (parkingSpaceRef.current) {
-      setW(parkingSpaceRef.current.offsetWidth);
-      setH(parkingSpaceRef.current.offsetHeight);
       constantW.current = parkingSpaceRef.current.offsetWidth;
       if (firstLineRef.current)
         firstLineRef.current.style.height = `${parkingSpaceRef.current.offsetWidth * 0.1}px`;
@@ -32,59 +26,6 @@ const ParkingStatesPage: FC = () => {
         secondLineRef.current.style.height = `${parkingSpaceRef.current.offsetWidth * 0.1}px`;
     }
   }, []);
-
-  useEffect(() => {
-    if (w) {
-      slotList.forEach((slot) => {
-        if (slot.state === SlotStatus.UNAVAILABLE) {
-          generateNewCar(slot.slotId);
-          const carElement = document.getElementById(`car${slot.slotId}`);
-
-          if (carElement) {
-            const slotWidth = w / 6;
-            carElement.style.right = `${-w + (7 - slot.slotId) * slotWidth - slotWidth / 2 - carElement.offsetWidth / 2}px`;
-            carElement.classList.add(`init-position`);
-          }
-        }
-      });
-    }
-  }, [w]);
-
-  useEffect(() => {
-    if (parkingSpaceRef.current && h && w) {
-      // Tạo animation style
-      const anim = document.createElement("style");
-      const rule1 = document.createTextNode(`
-        @-webkit-keyframes car-park {
-          from { transform: rotate(270deg) translate(-15px, 0px); }
-          70% { transform: rotate(270deg) translate(-15px, -${w}px); }
-          80% { transform: rotate(270deg) translate(-15px, -${w}px) rotate(35deg); }
-          90% { transform: rotate(270deg) translate(-15px, -${w}px) rotate(45deg); }
-          to { transform: rotate(270deg) translate(-15px, -${w}px) rotate(90deg) translate(0px, -${h * 0.32}px); }
-        }
-      `);
-      anim.appendChild(rule1);
-
-      const rule2 = document.createTextNode(`
-        @-webkit-keyframes car-exit-top {
-          from { transform: rotate(270deg) translate(-15px, -${w}px) rotate(90deg) translate(0px, -${h * 0.25}px); }
-          80% { transform: rotate(270deg) translate(-15px, -${w}px) rotate(90deg) translate(0px, -${h * 0.25}px) translate(0px, ${h * 0.6}px); }
-          90% { transform: rotate(270deg) translate(-15px, -${w}px) rotate(90deg) translate(0px, -${h * 0.25}px) translate(0px, ${h * 0.6}px) rotate(90deg); }
-          to { transform: rotate(270deg) translate(-15px, -${w}px) rotate(90deg) translate(0px, -${h * 0.25}px) translate(0px, ${h * 0.6}px) rotate(90deg) translate(0px, -${w * 1.5}px); }
-        }
-      `);
-      anim.appendChild(rule2);
-
-      const rule3 = document.createTextNode(`
-        .init-position {
-          transform: rotate(270deg) translate(-15px, -${w}px) rotate(90deg) translate(0px, -${h * 0.32}px);
-        }
-      `);
-      anim.appendChild(rule3);
-
-      parkingSpaceRef.current.appendChild(anim);
-    }
-  }, [w, h]);
 
   useEffect(() => {
     const setup = async () => {
@@ -96,28 +37,16 @@ const ParkingStatesPage: FC = () => {
       offSet: number
     ) => {
       currentStateNumber.current = offSet;
-      payload.parkingStates.forEach((slotNewState) => {
-        // console.log(payload.parkingStates);
-        const carElement = document.getElementById(`car${slotNewState.slotId}`);
-
-        if (carElement) {
-          if (slotNewState.state === SlotStatus.AVAILABLE) {
-            handleCarExit(slotNewState.slotId);
-          }
-        } else {
-          if (slotNewState.state === SlotStatus.UNAVAILABLE) {
-            handleCarEnter(slotNewState.slotId);
-          }
-        }
-      });
 
       const sortedUpdateSlot = parkingSlotService.sortSlotStates(
         payload.parkingStates
       );
+
       const newSlotsState = parkingSlotService.updateSlotStates(
         slotList,
         sortedUpdateSlot
       );
+
       setSlotList(newSlotsState);
     };
 
@@ -135,91 +64,24 @@ const ParkingStatesPage: FC = () => {
     };
   }, []);
 
-  const handleCarExit = (slot: number) => {
-    const newParklist = [...slotList];
-    newParklist[slot - 1].state = SlotStatus.AVAILABLE;
-    setSlotList(newParklist);
-
-    const carElement = document.getElementById(`car${slot}`);
-
-    if (carElement) {
-      carElement.style.animation = `car-exit-top ${7 - slot}s both`;
-    }
-
-    setTimeout(
-      () => {
-        if (carElement) carElement.remove();
-      },
-      Number(`${7 - slot}000`)
-    );
-  };
-
-  const generateNewCar = (slot: number) => {
-    if (parkingSpaceRef.current) {
-      const space = parkingSpaceRef.current;
-      const img = document.createElement("img");
-      img.src = "car-1.png";
-      img.className = "absolute z-10 m-auto";
-      img.style.width = `${constantW.current * 0.2}px`;
-      img.id = `car${slot}`;
-
-      space.appendChild(img);
-    }
-  };
-
-  const handleCarEnter = (slot: number) => {
-    if (!document.getElementById(`car${slot}`)) {
-      const newParklist = [...slotList];
-      newParklist[slot - 1].state = SlotStatus.UNAVAILABLE;
-      setSlotList(newParklist);
-
-      generateNewCar(slot);
-
-      const carElement = document.getElementById(`car${slot}`);
-      if (carElement) {
-        const slotWidth = constantW.current / 6;
-        carElement.style.right = `${-constantW.current + (7 - slot) * slotWidth - slotWidth / 2 - carElement.offsetWidth / 2}px`;
-
-        carElement.style.animation = `car-park ${2}s both`;
-      }
-    } else {
-      handleCarExit(slot);
-    }
-  };
-
   return (
     <div className="w-full overflow-hidden">
       <div className="w-full h-full flex items-center justify-center gap-10 mt-2 pb-20">
-        {currentUser && userService.isAuthorize(currentUser) && (
-          <div className="bg-[rgb(45,42,42)] w-[20rem] px-4">
-            <div className="text-white mt-4 text-xl font-bold">
-              Slot Management Remote
-            </div>
-            <div className="text-white grid grid-cols-3 gap-3 py-4">
-              {parkingSlotService.sortSlotStates(slotList).map((slot) => (
-                <span
-                  key={slot.slotId}
-                  onClick={() => handleCarEnter(slot.slotId)}
-                  id={`slot${slot.slotId}`}
-                  className={`py-4 text-center cursor-pointer ${slot.state == SlotStatus.UNAVAILABLE ? "bg-red-700" : "bg-green-700"}`}
-                >
-                  {slot.slotId}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
         <div
           ref={parkingSpaceRef}
           className="flex-1 flex flex-col justify-center items-center relative h-full"
         >
           <div className="w-full h-[26rem] flex">
-            {Array.from({ length: 6 }).map((_, slotNumber) => {
+            {slotList.map((slot, slotNumber) => {
               return (
                 <span
                   key={slotNumber}
-                  className="w-1/6 h-full border-x-2 font-sans text-6xl text-opacity-50 border-[rgb(24,20,20)] bg-[rgb(31,31,40)] flex justify-center items-center text-gray-300"
+                  className={cn(
+                    "w-1/6 h-full border-x-2 font-sans text-6xl text-opacity-50 border-[rgb(24,20,20)] flex justify-center items-center",
+                    slot.state === SlotStatus.UNAVAILABLE
+                      ? "bg-red-500 text-black"
+                      : "bg-[rgb(31,31,40)] text-gray-300"
+                  )}
                   id={`slot-${slotNumber + 1}`}
                 >
                   {`${slotNumber + 1}`}

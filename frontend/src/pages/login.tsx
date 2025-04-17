@@ -88,9 +88,6 @@ const Login: FC = () => {
               autoComplete="email"
               className="text-base placeholder_text-base placeholder_italic"
             />
-            {errors.email && (
-              <div className="text-red-600">{errors.email.message}</div>
-            )}
           </div>
           <div className="flex flex-col gap-2 relative">
             <Label htmlFor="password" className="font-semibold text-lg">
@@ -114,9 +111,6 @@ const Login: FC = () => {
             >
               {passwordVisibility ? <EyeOff /> : <Eye />}
             </button>
-            {errors.password && (
-              <div className="text-red-600">{errors.password.message}</div>
-            )}
           </div>
         </CardContent>
         <CardFooter className="flex flex-col justify-center">
@@ -132,8 +126,10 @@ const Login: FC = () => {
               <LoadingSpinner size={26} className="text-white" />
             )}
           </Button>
-          {errors.root && (
-            <div className="text-red-600 mt-4">{errors.root.message}</div>
+          {(errors.root || errors.email || errors.password) && (
+            <div className="text-red-600 mt-4">
+              {(errors.root || errors.email || errors.password)!.message}
+            </div>
           )}
         </CardFooter>
       </Card>

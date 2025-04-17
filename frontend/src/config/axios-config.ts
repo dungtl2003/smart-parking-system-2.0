@@ -6,6 +6,8 @@ import { InvalidTokenError, jwtDecode } from "jwt-decode";
 const serverUrl = `${import.meta.env.VITE_EXPRESS_SERVER_API ?? `http://127.0.0.1`}:${import.meta.env.VITE_API_SERVER_PORT}`;
 export const apiUrl = `${serverUrl}${import.meta.env.VITE_API_VERSION}`;
 
+console.info("[axios-config] full apiUrl=" + apiUrl);
+
 export const axiosInstance = axios.create({
   baseURL: apiUrl,
   timeout: 100000, // 100 seconds
