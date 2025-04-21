@@ -18,6 +18,7 @@ export interface CardVehicle {
     cardId: string;
     licensePlate: string;
     username: string;
+    userId: string;
 }
 
 export interface ScannedLog {
@@ -31,8 +32,8 @@ export interface ClientEvents {
     "user:join": () => void;
     "user:leave": () => void;
     "reconnect:sync": (latestId: number) => void;
-    "cardlist-page:join": () => void;
-    "cardlist-page:leave": () => void;
+    "cardlist-page:join": (userId: string) => void;
+    "cardlist-page:leave": (userId: string) => void;
 }
 
 export interface ServerEvents {

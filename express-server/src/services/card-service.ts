@@ -21,6 +21,7 @@ const getCardLinkedToVehicle = async (
                     user: {
                         select: {
                             username: true,
+                            userId: true,
                         },
                     },
                 },
@@ -40,6 +41,7 @@ const getCardLinkedToVehicle = async (
         cardId: rawData.cardId,
         licensePlate: rawData.vehicle.licensePlate,
         username: rawData.vehicle.user.username,
+        userId: rawData.userId!,
     };
 };
 

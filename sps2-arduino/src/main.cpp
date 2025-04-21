@@ -18,6 +18,7 @@
 #define EXIT_INVALID_CARD 3
 #define EXIT_VALID_CARD 4
 #define CHECKING_CARD 2
+#define REQUEST_FAIL 5
 #define UNDETECTED -1
 
 #define IR_CAR_1 22
@@ -61,31 +62,38 @@ SPS_Gate entryGate(SERVO_ENTER_PIN, SERVO_DELAY_MS);
 SPS_Gate exitGate(SERVO_EXIT_PIN, SERVO_DELAY_MS);
 SPS_RFID_Scanner entryScanner(RFID_ENTER_SS_PIN, RFID_ENTER_RST_PIN);
 
-QueueHandle_t slotStateQueue;
+QueueHandle_t slotStatesQueue;
 
-QueueHandle_t slotSignalQueue;
+QueueHandle_t slotNewStatesQueue;
 
 QueueHandle_t usernameQueue;
 
 QueueHandle_t scannedCardStateQueue;
 
-QueueHandle_t gateStateQueue;
+QueueHandle_t gateSignalQueue;
 
 QueueHandle_t lightStateQueue;
 
-QueueHandle_t cardInfoQueue;
+QueueHandle_t scannedCardInfoQueue;
 
 QueueHandle_t cardWithSpecificGateQueue;
 
-SemaphoreHandle_t validEntryScanningSE;
+QueueHandle_t timeObserverQueue;
 
-SemaphoreHandle_t validExitScanningSE;
+SemaphoreHandle_t entryGateCardDetectedConsumedByRFIDScanDecisionUnit;
 
-SemaphoreHandle_t entryScannerIsReadyToOpenGateSE;
+SemaphoreHandle_t exitGateCardDetectedConsumedByRFIDScanDecisionUnit;
 
-SemaphoreHandle_t exitScannerIsReadyToOpenGateSE;
+SemaphoreHandle_t entryGateCardDetectedConsumedByGateCtrl;
 
-TaskHandle_t renderTaskHandle = NULL;
+SemaphoreHandle_t exitGateCardDetectedConsumedByGateCtrl;
+
+TaskHandle_t displayManagerHandle = NULL;
+
+void printCurrentTime(String taskName){
+  unsigned long currentTime = micros();
+  Serial.println("[LOG] " + taskName + ": " + String(currentTime) + " µs");
+}
 
 int getBitAt (int srcNum, int index){
   //Index start from right to left
@@ -157,7 +165,7 @@ void updateEntryGateStatus(int &entrySwitchLastState, bool &entryMode, bool &cur
   } else {
     if (hasSlot 
       && isEntryFrontSensorDetected
-      && (xSemaphoreTake(entryScannerIsReadyToOpenGateSE, 0) == pdTRUE)) 
+      && (xSemaphoreTake(entryGateCardDetectedConsumedByGateCtrl, 0) == pdTRUE)) 
     {
       currentEntryGateStatus = OPEN;
 
@@ -194,7 +202,7 @@ void updateExitGateStatus(int &exitSwitchLastState, bool &exitMode, bool &curren
     }
   } else {
     if (isExitFrontSensorDetected
-      && (xSemaphoreTake(exitScannerIsReadyToOpenGateSE, 0) == pdTRUE)) 
+      && (xSemaphoreTake(exitGateCardDetectedConsumedByGateCtrl, 0) == pdTRUE)) 
     {
       currentExitGateStatus = OPEN;
 
@@ -206,32 +214,35 @@ void updateExitGateStatus(int &exitSwitchLastState, bool &exitMode, bool &curren
   }
 }
 
-void consumeESPCommand (void *pvParameters) { 
+void espCommandDispatcher (void *pvParameters) { 
+  String input, label, value;
+  int separatorIndex, result;
+
   while(1) {
     // Serial.println(1);
     if(Serial.available() <= 0) {
       continue;
     }
 
-    String input = Serial.readStringUntil('\n');
+    input = Serial.readStringUntil('\n');
     // Serial.println("received command:"+input);
-    int separatorIndex = input.indexOf(':');
+    separatorIndex = input.indexOf(':');
 
     if (separatorIndex == -1) {
       continue;
     }
 
     //down here only when receive valid ESP command
-    String label = input.substring(0, separatorIndex);
-    String value = input.substring(separatorIndex + 1);
+    label = input.substring(0, separatorIndex);
+    value = input.substring(separatorIndex + 1);
     value.trim();
 
     if(label.equals("USER")) {
       char msg[15];
       value.toCharArray(msg, sizeof(msg));
-      int result = xQueueOverwrite(usernameQueue, msg);
+      result = xQueueOverwrite(usernameQueue, msg);
       if(result == errQUEUE_FULL){
-        Serial.println("[consumeESPCommand] Fail to overwrite usernameQueue");
+        Serial.println("[espCommandDispatcher] Fail to overwrite usernameQueue");
       }
     } 
 
@@ -240,30 +251,35 @@ void consumeESPCommand (void *pvParameters) {
       if(valueToInt == ENTRY_VALID_CARD 
         || valueToInt == ENTRY_INVALID_CARD
         || valueToInt == EXIT_VALID_CARD
-        || valueToInt == EXIT_INVALID_CARD)
+        || valueToInt == EXIT_INVALID_CARD
+        || valueToInt == REQUEST_FAIL)
       {
-        // send to render
-        int result = xQueueOverwrite(scannedCardStateQueue, &valueToInt);
+        // send to displayManager
+        result = xQueueOverwrite(scannedCardStateQueue, &valueToInt);
         if(result == errQUEUE_FULL){
-          Serial.println("[consumeESPCommand] Fail to overwrite scannedCardStateQueue");
+          Serial.println("[espCommandDispatcher] Fail to overwrite scannedCardStateQueue");
         }
       }
 
-      // send to control gate
+      // send to gateController
       if(valueToInt == ENTRY_VALID_CARD){
-        xSemaphoreGive(entryScannerIsReadyToOpenGateSE);
-        xSemaphoreGive(validEntryScanningSE);
+        xSemaphoreGive(entryGateCardDetectedConsumedByGateCtrl);
+        xSemaphoreGive(entryGateCardDetectedConsumedByRFIDScanDecisionUnit);
       }
 
       if(valueToInt == EXIT_VALID_CARD){
-        xSemaphoreGive(exitScannerIsReadyToOpenGateSE);
-        xSemaphoreGive(validExitScanningSE);
+        xSemaphoreGive(exitGateCardDetectedConsumedByGateCtrl);
+        xSemaphoreGive(exitGateCardDetectedConsumedByRFIDScanDecisionUnit);
       }
     }  
   }
 }
 
-void readSignal(void *pvParameters) {
+void printTime(String taskName, String startTime, String time, String time2){
+  Serial.println("[LOG] " + taskName + ": "+ startTime + " µs " + time + " µs " + time2 + " µs ");
+  vTaskDelay(100 / portTICK_PERIOD_MS);
+}
+void signalReader(void *pvParameters) {
   int slotStates = 0;
   int gateState = 0;
   int lightState = 0;
@@ -275,9 +291,9 @@ void readSignal(void *pvParameters) {
       int value = infraredSensor.isParkingSensorDetected(i) ? 1 : 0;
       appendBit(slotStates, value);
     }
-    int result = xQueueOverwrite(slotStateQueue, &slotStates);
+    int result = xQueueOverwrite(slotStatesQueue, &slotStates);
     if(result == errQUEUE_FULL){
-      Serial.println("[readSignal] Fail to overwrite slotStateQueue");
+      Serial.println("[signalReader] Fail to overwrite slotStatesQueue");
     }
 
     // unsigned long time_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
@@ -291,28 +307,32 @@ void readSignal(void *pvParameters) {
     appendBit(gateState, infraredSensor.isExitFrontSensorDetected());
     appendBit(gateState, infraredSensor.isExitBackSensorDetected());
     appendBit(gateState, digitalRead(EXIT_BTN_PIN));
-    result = xQueueOverwrite(gateStateQueue, &gateState);
+    result = xQueueOverwrite(gateSignalQueue, &gateState);
     if(result == errQUEUE_FULL){
-      Serial.println("[readSignal] Fail to overwrite gateStateQueue");
+      Serial.println("[signalReader] Fail to overwrite gateSignalQueue");
     }
 
     //read light sensor
     lightState = digitalRead(LIGHT_SENSOR_PIN);
+
+    unsigned long currentTime = micros();
+    xQueueOverwrite(timeObserverQueue, &currentTime);
+
     result = xQueueOverwrite(lightStateQueue, &lightState);
     if(result == errQUEUE_FULL){
-      Serial.println("[readSignal] Fail to overwrite lightStateQueue");
+      Serial.println("[signalReader] Fail to overwrite lightStateQueue");
     }
   }
 }
 
-void readRFID(void *pvParameters) {
+void rfidReader(void *pvParameters) {
   while(1) {
     // read RFID card
     bool isDetected = entryScanner.validateCard();
     if(!entryScanner.hasSend && isDetected) {
-      int result = xQueueOverwrite(cardInfoQueue, &(entryScanner.scannedCardIndex));
+      int result = xQueueOverwrite(scannedCardInfoQueue, &(entryScanner.scannedCardIndex));
       if(result == errQUEUE_FULL){
-        Serial.println("[readRFID] Fail to overwrite cardInforQueue");
+        Serial.println("[rfidReader] Fail to overwrite cardInforQueue");
       }
 
       entryScanner.hasSend = true;
@@ -320,74 +340,87 @@ void readRFID(void *pvParameters) {
   }
 }
 
-void render(void *pvParameters) {
-  int slotStates = 0;
-  int cardState = UNDETECTED;
-  char username[15] = "";
-  char displayText[30];
+void displayManager(void *pvParameters) {
+  int slotStates = 0, cardState = UNDETECTED, result;
+  char username[15] = "", displayedText[30];
 
   while(1){
-    int popResult = xQueueReceive(scannedCardStateQueue, &cardState, 0);
-    if (popResult == pdTRUE) {
+    result = xQueueReceive(scannedCardStateQueue, &cardState, 0);
+    if (result == pdTRUE) {
       display.clearScreen();
+
       if (cardState == ENTRY_VALID_CARD 
         || cardState == ENTRY_INVALID_CARD
         || cardState == EXIT_VALID_CARD
-        || cardState == EXIT_INVALID_CARD) {
+        || cardState == EXIT_INVALID_CARD
+        || cardState == REQUEST_FAIL) {
         //start counting if result arrived
         memset(username, 0, sizeof(username));
-        memset(displayText, 0, sizeof(displayText));
+        memset(displayedText, 0, sizeof(displayedText));
         username[0] = '\0';
-        displayText[0] = '\0';
+        displayedText[0] = '\0';
       }
+
       if (cardState == ENTRY_VALID_CARD )
       {
-        strcat(displayText, "Hi ");
+        strcat(displayedText, "Hi ");
       }
       if (cardState == EXIT_VALID_CARD) 
       {
-        strcat(displayText, "Bye ");
+        strcat(displayedText, "Bye ");
       }
     }
-    vTaskPrioritySet(renderTaskHandle, 2);
+    vTaskPrioritySet(displayManagerHandle, 2);
 
     // rendering`s main logic
-    if((cardState == ENTRY_VALID_CARD) || (cardState == EXIT_VALID_CARD)){
+    if((cardState == ENTRY_VALID_CARD) || (cardState == EXIT_VALID_CARD))
+    {
       if(xQueueReceive(usernameQueue, username, 0)){
-        strcat(displayText, username);
-        strcat(displayText, " !");
+        strcat(displayedText, username);
+        strcat(displayedText, " !");
       }
-      display.printString(displayText);
+      display.printString(displayedText);
       vTaskDelay(2000 / portTICK_PERIOD_MS);
 
       display.clearScreen();
       cardState = UNDETECTED;
-    } else if((cardState == ENTRY_INVALID_CARD) || (cardState == EXIT_INVALID_CARD)) {
+
+    } else if((cardState == ENTRY_INVALID_CARD) || (cardState == EXIT_INVALID_CARD))
+    {
       display.printString("Invalid card");
       vTaskDelay(2000 / portTICK_PERIOD_MS);
 
       display.clearScreen();
       cardState = UNDETECTED;
-    } else if (cardState == CHECKING_CARD) {
+
+    } else if (cardState == CHECKING_CARD) 
+    {
       display.printString("Scanning...");
+
+    } else if(cardState == REQUEST_FAIL) 
+    {
+      display.printString("Fail to scan");
+      vTaskDelay(2000 / portTICK_PERIOD_MS);
+
+      display.clearScreen();
+      cardState = UNDETECTED;
 
     } else {
       // unsigned long time_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
       // Serial.println("before peek: " + (String)time_ms);
 
-      xQueuePeek(slotStateQueue, &slotStates, 0);
-      // display.render(0, 0, 0, 0, 0, 0); 
+      xQueuePeek(slotStatesQueue, &slotStates, 0);
       display.render(getBitAt(slotStates, 5), getBitAt(slotStates, 4), getBitAt(slotStates, 3), 
                      getBitAt(slotStates, 2), getBitAt(slotStates, 1), getBitAt(slotStates, 0));
 
       // time_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
-      // Serial.println("after render: " + (String)time_ms);
+      // Serial.println("after displayManager: " + (String)time_ms);
     }
-    vTaskPrioritySet(renderTaskHandle, 1);
+    vTaskPrioritySet(displayManagerHandle, 1);
   }
 }
 
-void controlLight(void *pvParameters) {
+void lightController(void *pvParameters) {
   int lightState = 0;
 
   while(1) {
@@ -401,7 +434,8 @@ void controlLight(void *pvParameters) {
   }
 }
 
-void controlGate(void *pvParameters) {
+
+void gateController(void *pvParameters) {
   int entrySwitchLastState = 0;
   int exitSwitchLastState = 0;
   bool entryMode = false;
@@ -412,8 +446,8 @@ void controlGate(void *pvParameters) {
   int slotState = 0;
 
   while(1) {
-    xQueuePeek(gateStateQueue, &gateState, 0);
-    xQueuePeek(slotStateQueue, &slotState, 0);
+    xQueuePeek(gateSignalQueue, &gateState, 0);
+    xQueuePeek(slotStatesQueue, &slotState, 0);
 
     // update gate status
     updateEntryGateStatus(entrySwitchLastState, entryMode, currentEntryGateStatus, 
@@ -438,25 +472,25 @@ void controlGate(void *pvParameters) {
   }
 }
 
-void detectParkingStatesChanges (void *pvParameters) {
+void slotStatesChangeDetector (void *pvParameters) {
   int slotStates = 0;
   int newSlotStates = 0;
 
   while (1){
-    if(xQueuePeek(slotStateQueue, &newSlotStates, 0)){
+    if(xQueuePeek(slotStatesQueue, &newSlotStates, 0)){
       if(slotStates - newSlotStates != 0){ 
         Serial.println("state change: " + (String)newSlotStates + " " + (String)slotStates);
         slotStates = newSlotStates;
-        int result = xQueueOverwrite(slotSignalQueue, &slotStates);
+        int result = xQueueOverwrite(slotNewStatesQueue, &slotStates);
         if(result == errQUEUE_FULL){
-          Serial.println("[detectParkingStatesChanges] Fail to overwrite slotSignalQueue");
+          Serial.println("[slotStatesChangeDetector] Fail to overwrite slotNewStatesQueue");
         }
       }
     }
   }
 }
 
-void produceESPCommand (void *pvParameters) {
+void espCommandProducer (void *pvParameters) {
   int slotStates;
   int cardMixGate = -1;
 
@@ -469,13 +503,13 @@ void produceESPCommand (void *pvParameters) {
       cardMixGate = -1;
     }
 
-    if(xQueueReceive(slotSignalQueue, &slotStates, 0)){
+    if(xQueueReceive(slotNewStatesQueue, &slotStates, 0)){
       printParkingStatesToSerial(slotStates);
     }
   }
 }
 
-void sensorRFIDFusion (void *pvParameters) {
+void rfidScanDecisionUnit (void *pvParameters) {
   int cardIndex;
   int gateSensorStates = 0;
   int gate = -1;
@@ -485,18 +519,18 @@ void sensorRFIDFusion (void *pvParameters) {
   int slotState;
 
   while (1){
-    xQueuePeek(gateStateQueue,&gateSensorStates, 0);
-    xQueuePeek(slotStateQueue, &slotState, 0);
+    xQueuePeek(gateSignalQueue,&gateSensorStates, 0);
+    xQueuePeek(slotStatesQueue, &slotState, 0);
     // bit 5th is the value of sensor which is futher to the parkinglot at the entry gate
     // bit 4th is the value of sensor which is closer to the parkinglot at the entry gate
     // bit 2nd is the value of sensor which is closer to the parkinglot at the exit gate
     // bit 1nd is the value of sensor which is futher to the parkinglot at the exit gate
 
     // if that gate's barrier is open, that side is unscannable 
-    if(xSemaphoreTake(validEntryScanningSE, 0) == pdTRUE){
+    if(xSemaphoreTake(entryGateCardDetectedConsumedByRFIDScanDecisionUnit, 0) == pdTRUE){
       entryGateUnopen = false; 
     }
-    if(xSemaphoreTake(validExitScanningSE, 0) == pdTRUE){
+    if(xSemaphoreTake(exitGateCardDetectedConsumedByRFIDScanDecisionUnit, 0) == pdTRUE){
       exitGateUnopen = false; 
     }
     // if both sensors of that gate detects not thing, that side will return to scannable 
@@ -535,26 +569,26 @@ void sensorRFIDFusion (void *pvParameters) {
     }
 
     if((gate == ENTRY_GATE) && (slotState == TOTAL_SLOTS_BITS_TO_INT)){
-      xQueueReceive(cardInfoQueue,&cardIndex, 0);
+      xQueueReceive(scannedCardInfoQueue,&cardIndex, 0);
       continue;
     }
 
-    if(xQueueReceive(cardInfoQueue,&cardIndex, 0)
+    if(xQueueReceive(scannedCardInfoQueue,&cardIndex, 0)
       && (entryGateUnopen || exitGateUnopen)
       && (gate != -1))
     { // productRFIDFusion: run in here if card is detected and entry gate`s front Sensor or exit gate`s front Sensor detected signal
       appendBit(cardIndex, gate); // append the gate value to the end of cardIndex's bits
       result = xQueueSend(cardWithSpecificGateQueue, &cardIndex, portMAX_DELAY);
       if(result == errQUEUE_FULL){
-        Serial.println("[sensorRFIDFusion] Fail to overwrite cardWithSpecificGateQueue");
+        Serial.println("[rfidScanDecisionUnit] Fail to overwrite cardWithSpecificGateQueue");
       }
       
-      // render: only sent if queue is empty
+      // displayManager: only sent if queue is empty
       if (uxQueueMessagesWaiting(scannedCardStateQueue) == 0){
         int cardState = CHECKING_CARD;
         int result = xQueueOverwrite(scannedCardStateQueue, &cardState);
         if(result == errQUEUE_FULL){
-          Serial.println("[sensorRFIDFusion] Fail to overwrite scannedCardStateQueue");
+          Serial.println("[rfidScanDecisionUnit] Fail to overwrite scannedCardStateQueue");
         }
       }
     }
@@ -583,40 +617,46 @@ void setup() {
   entryGate.init();
   entryScanner.init(validUIDs, 6);
   exitGate.init(); 
-  slotStateQueue = xQueueCreate(1, sizeof(int));
-  slotSignalQueue = xQueueCreate(1, sizeof(int));
+
+  slotStatesQueue = xQueueCreate(1, sizeof(int));
+  slotNewStatesQueue = xQueueCreate(1, sizeof(int));
   usernameQueue = xQueueCreate(1, sizeof(char[15]));
   scannedCardStateQueue = xQueueCreate(1, sizeof(int));
-  gateStateQueue = xQueueCreate(1, sizeof(int));
+  gateSignalQueue = xQueueCreate(1, sizeof(int));
   lightStateQueue = xQueueCreate(1, sizeof(int));
-  cardInfoQueue = xQueueCreate(1, sizeof(int));
+  scannedCardInfoQueue = xQueueCreate(1, sizeof(int));
   cardWithSpecificGateQueue = xQueueCreate(10, sizeof(int));
+  timeObserverQueue = xQueueCreate(1, sizeof(unsigned long));
 
-  validEntryScanningSE = xSemaphoreCreateBinary();
-  validExitScanningSE = xSemaphoreCreateBinary();
-  entryScannerIsReadyToOpenGateSE = xSemaphoreCreateBinary();
-  exitScannerIsReadyToOpenGateSE = xSemaphoreCreateBinary();
+  entryGateCardDetectedConsumedByRFIDScanDecisionUnit = xSemaphoreCreateBinary();
+  exitGateCardDetectedConsumedByRFIDScanDecisionUnit = xSemaphoreCreateBinary();
+  entryGateCardDetectedConsumedByGateCtrl = xSemaphoreCreateBinary();
+  exitGateCardDetectedConsumedByGateCtrl = xSemaphoreCreateBinary();
 
-  if(validEntryScanningSE == NULL
-    || validExitScanningSE == NULL
-    || entryScannerIsReadyToOpenGateSE == NULL
-    || exitScannerIsReadyToOpenGateSE == NULL
+  if(entryGateCardDetectedConsumedByRFIDScanDecisionUnit == NULL
+    || exitGateCardDetectedConsumedByRFIDScanDecisionUnit == NULL
+    || entryGateCardDetectedConsumedByGateCtrl == NULL
+    || exitGateCardDetectedConsumedByGateCtrl == NULL
   ){
     Serial.println("[SetUp] Fail to create semaphore");
     return;
   }
 
-  xTaskCreate(consumeESPCommand, "Task1", 300, NULL, 1, NULL);
-  xTaskCreate(readSignal, "Task2", 300, NULL, 1, NULL);
-  xTaskCreate(readRFID, "Task3", 300, NULL, 1, NULL);
-  xTaskCreate(render, "Task4", 300, NULL, 1, &renderTaskHandle);
-  xTaskCreate(controlLight, "Task5", 300, NULL, 1, NULL);
-  xTaskCreate(controlGate, "Task6", 300, NULL, 1, NULL);
-  xTaskCreate(detectParkingStatesChanges, "Task7", 300, NULL, 1, NULL);
-  xTaskCreate(produceESPCommand, "Task8", 300, NULL, 1, NULL);
-  xTaskCreate(sensorRFIDFusion, "Task9", 300, NULL, 1, NULL);
+  xTaskCreate(espCommandDispatcher, "Task1", 300, NULL, 1, NULL);
+  xTaskCreate(signalReader, "Task2", 300, NULL, 1, NULL);
+  xTaskCreate(rfidReader, "Task3", 300, NULL, 1, NULL);
+  xTaskCreate(displayManager, "Task4", 300, NULL, 1, &displayManagerHandle);
+  xTaskCreate(lightController, "Task5", 300, NULL, 1, NULL);
+  xTaskCreate(gateController, "Task6", 300, NULL, 1, NULL);
+  xTaskCreate(slotStatesChangeDetector, "Task7", 300, NULL, 1, NULL);
+  xTaskCreate(espCommandProducer, "Task8", 300, NULL, 1, NULL);
+  xTaskCreate(rfidScanDecisionUnit, "Task9", 300, NULL, 1, NULL);
 
   vTaskStartScheduler();
+  // unsigned long start = micros();
+  // // ... tác vụ chính ...
+  // unsigned long duration = micros() - start;
+  // Serial.println("Task done in " + String(duration) + " µs");
 }
 
 void loop() {

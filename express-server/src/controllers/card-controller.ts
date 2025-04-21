@@ -111,6 +111,7 @@ const validateCard = async (req: Request, res: Response) => {
             //emit new log to frontend
             socketService.emitToCardListPageRoom({
                 log: newLog,
+                userId: vehicle.userId,
             });
         } else {
             throw new AxiosError();

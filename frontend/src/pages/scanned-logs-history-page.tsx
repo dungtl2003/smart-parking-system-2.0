@@ -3,16 +3,19 @@ import { FC, useEffect, useState } from "react";
 import { useRouteLoaderData } from "react-router-dom";
 import { LogTable } from "@/components/scanned-card-history";
 import useSocket from "@/hooks/use-socket";
+import { useCurrentUser } from "@/hooks";
 
 const ScannedLogsHistory: FC = () => {
   const initData = useRouteLoaderData("scanned-logs-history") as CheckinLog[];
   const [logs, setLogs] = useState<(CheckinLog | ScannedLog)[]>(initData);
   const { socket } = useSocket();
   const [highlightFirst, setHighlightFirst] = useState<boolean>(false);
+  const { currentUser } = useCurrentUser();
 
   useEffect(() => {
+    if (!currentUser) return;
     const setup = async () => {
-      socket?.emit(`cardlist-page:join`);
+      socket?.emit(`cardlist-page:join`, currentUser.userId);
     };
 
     const handleNewLogArrived = (payload: { log: ScannedLog }) => {
@@ -32,7 +35,7 @@ const ScannedLogsHistory: FC = () => {
     return () => {
       socket?.off(`card:update`);
       socket?.off(`connect`);
-      socket?.emit(`cardlist-page:leave`);
+      socket?.emit(`cardlist-page:leave`, currentUser.userId);
     };
   }, []);
 

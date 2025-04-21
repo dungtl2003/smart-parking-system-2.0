@@ -10,8 +10,8 @@ export interface ClientEvents {
   "user:join": () => void;
   "user:leave": () => void;
   "reconnect:sync": (serverOffset: number) => void;
-  "cardlist-page:join": () => void;
-  "cardlist-page:leave": () => void;
+  "cardlist-page:join": (userId: string) => void;
+  "cardlist-page:leave": (userId: string) => void;
 }
 
 export interface ServerEvents {

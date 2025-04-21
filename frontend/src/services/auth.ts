@@ -1,4 +1,4 @@
-import { AxiosResponse } from "axios";
+import { AxiosError, AxiosResponse, HttpStatusCode } from "axios";
 import { axiosInstance, reqConfig } from "@/config";
 import { LoginFormProps } from "@/utils/schema";
 import { User } from "@/types/model";
@@ -20,7 +20,12 @@ const authService = {
 
         return accessToken;
       } catch (error) {
-        console.error("Unexpected error:", error);
+        if (
+          !(error instanceof AxiosError) ||
+          error.response?.status !== HttpStatusCode.Unauthorized
+        ) {
+          console.error("Unexpected error:", error);
+        }
       }
     },
     login: async (data: LoginFormProps): Promise<string> => {

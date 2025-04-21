@@ -36,6 +36,7 @@ const ParkingStatesPage: FC = () => {
       payload: { parkingStates: ParkingSlot[] },
       offSet: number
     ) => {
+      console.log("new states: " + payload.parkingStates);
       currentStateNumber.current = offSet;
 
       const sortedUpdateSlot = parkingSlotService.sortSlotStates(
@@ -80,7 +81,7 @@ const ParkingStatesPage: FC = () => {
                     "w-1/6 h-full border-x-2 font-sans text-6xl text-opacity-50 border-[rgb(24,20,20)] flex justify-center items-center",
                     slot.state === SlotStatus.UNAVAILABLE
                       ? "bg-red-500 text-black"
-                      : "bg-[rgb(31,31,40)] text-gray-300"
+                      : "bg-green-500 text-white"
                   )}
                   id={`slot-${slotNumber + 1}`}
                 >
