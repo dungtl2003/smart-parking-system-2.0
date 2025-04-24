@@ -78,8 +78,6 @@ QueueHandle_t scannedCardInfoQueue;
 
 QueueHandle_t cardWithSpecificGateQueue;
 
-QueueHandle_t timeObserverQueue;
-
 SemaphoreHandle_t entryGateCardDetectedConsumedByRFIDScanDecisionUnit;
 
 SemaphoreHandle_t exitGateCardDetectedConsumedByRFIDScanDecisionUnit;
@@ -220,7 +218,6 @@ void espCommandDispatcher (void *pvParameters) {
     }
 
     input = Serial.readStringUntil('\n');
-    // Serial.println("received command:"+input);
     separatorIndex = input.indexOf(':');
 
     if (separatorIndex == -1) {
@@ -291,9 +288,6 @@ void signalReader(void *pvParameters) {
       Serial.println("[signalReader] Fail to overwrite slotStatesQueue");
     }
 
-    // unsigned long time_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
-    // Serial.println("sensor: " + (String)time_ms);
-
     // read sensor around gates
     gateState = 0;
     appendBit(gateState, infraredSensor.isEntryFrontSensorDetected());
@@ -309,9 +303,6 @@ void signalReader(void *pvParameters) {
 
     //read light sensor
     lightState = digitalRead(LIGHT_SENSOR_PIN);
-
-    unsigned long currentTime = micros();
-    xQueueOverwrite(timeObserverQueue, &currentTime);
 
     result = xQueueOverwrite(lightStateQueue, &lightState);
     if(result == errQUEUE_FULL){
@@ -401,15 +392,9 @@ void displayManager(void *pvParameters) {
       cardState = UNDETECTED;
 
     } else {
-      // unsigned long time_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
-      // Serial.println("before peek: " + (String)time_ms);
-
       xQueuePeek(slotStatesQueue, &slotStates, 0);
       display.render(getBitAt(slotStates, 5), getBitAt(slotStates, 4), getBitAt(slotStates, 3), 
                      getBitAt(slotStates, 2), getBitAt(slotStates, 1), getBitAt(slotStates, 0));
-
-      // time_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
-      // Serial.println("after displayManager: " + (String)time_ms);
     }
     vTaskPrioritySet(displayManagerHandle, 1);
   }
@@ -587,7 +572,6 @@ void rfidScanDecisionUnit (void *pvParameters) {
         }
       }
     }
-    // vTaskDelay(100/MS_PER_TICK);
   }
 }
 
@@ -621,7 +605,6 @@ void setup() {
   lightStateQueue = xQueueCreate(1, sizeof(int));
   scannedCardInfoQueue = xQueueCreate(1, sizeof(int));
   cardWithSpecificGateQueue = xQueueCreate(10, sizeof(int));
-  timeObserverQueue = xQueueCreate(1, sizeof(unsigned long));
 
   entryGateCardDetectedConsumedByRFIDScanDecisionUnit = xSemaphoreCreateBinary();
   exitGateCardDetectedConsumedByRFIDScanDecisionUnit = xSemaphoreCreateBinary();
