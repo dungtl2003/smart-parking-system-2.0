@@ -21,17 +21,16 @@ const parkingSlotService = {
     slotsToUpdate: ParkingSlot[] //must contain at least one slot
   ): ParkingSlot[] => {
     //two list must be sorted ascending
-    let iter = 0;
-    return currentSlots.map((currentSlot) => {
+    let updatedSlotIndex = 0;
+    return currentSlots.map((slot) => {
       if (
-        slotsToUpdate[iter] &&
-        slotsToUpdate[iter].slotId === currentSlot.slotId
+        slotsToUpdate[updatedSlotIndex] &&
+        slotsToUpdate[updatedSlotIndex].slotId === slot.slotId
       ) {
-        currentSlot = slotsToUpdate[iter];
-        slotsToUpdate[iter] && iter++;
+        return slotsToUpdate[updatedSlotIndex++];
       }
 
-      return currentSlot;
+      return slot;
     });
   },
 };

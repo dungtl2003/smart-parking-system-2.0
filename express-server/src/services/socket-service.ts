@@ -40,6 +40,20 @@ const init = (socketIo: Server) => {
             );
         });
 
+        socket.on(`cardlist-page-authorized:join`, () => {
+            socket.join(`cardlist-page-authorized`);
+            console.debug(
+                `[socket server] join viewer to cardlist-page-authorized room : { socketID : ${socket.id}}`
+            );
+        });
+
+        socket.on(`cardlist-page-authorized:leave`, () => {
+            socket.leave(`cardlist-page-authorized`);
+            console.debug(
+                `[socket server] viewer leaving from cardlist-page-authorized room : { socketID : ${socket.id}}`
+            );
+        });
+
         socket.on(`reconnect:sync`, (latestId: number) => {
             if (!io) {
                 console.debug(
@@ -102,4 +116,20 @@ const emitToCardListPageRoom = (data: {log: ScannedLog; userId: string}) => {
     io.to(`cardlist-page-${data.userId}`).emit("card:update", data);
 };
 
-export default {init, emitToParkingRoom, emitToCardListPageRoom};
+const emitToCardListAuthorizedPageRoom = (data: {log: ScannedLog}) => {
+    if (!io) {
+        console.debug(
+            `[socket-service] emitToCardListAuthorizedPageRoom: io unavailable`
+        );
+        return;
+    }
+
+    io.to(`cardlist-page-authorized`).emit("card:update", data);
+};
+
+export default {
+    init,
+    emitToParkingRoom,
+    emitToCardListPageRoom,
+    emitToCardListAuthorizedPageRoom,
+};

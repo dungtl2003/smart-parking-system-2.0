@@ -113,6 +113,9 @@ const validateCard = async (req: Request, res: Response) => {
                 log: newLog,
                 userId: vehicle.userId,
             });
+            socketService.emitToCardListAuthorizedPageRoom({
+                log: newLog,
+            });
         } else {
             throw new AxiosError();
         }

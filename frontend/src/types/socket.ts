@@ -12,6 +12,8 @@ export interface ClientEvents {
   "reconnect:sync": (serverOffset: number) => void;
   "cardlist-page:join": (userId: string) => void;
   "cardlist-page:leave": (userId: string) => void;
+  "cardlist-page-authorized:join": () => void;
+  "cardlist-page-authorized:leave": () => void;
 }
 
 export interface ServerEvents {

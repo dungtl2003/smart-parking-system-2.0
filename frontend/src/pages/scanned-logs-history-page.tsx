@@ -4,6 +4,7 @@ import { useRouteLoaderData } from "react-router-dom";
 import { LogTable } from "@/components/scanned-card-history";
 import useSocket from "@/hooks/use-socket";
 import { useCurrentUser } from "@/hooks";
+import { Role } from "@/types/enum";
 
 const ScannedLogsHistory: FC = () => {
   const initData = useRouteLoaderData("scanned-logs-history") as CheckinLog[];
@@ -15,7 +16,11 @@ const ScannedLogsHistory: FC = () => {
   useEffect(() => {
     if (!currentUser) return;
     const setup = async () => {
-      socket?.emit(`cardlist-page:join`, currentUser.userId);
+      if (currentUser.role === Role.CUSTOMER) {
+        socket?.emit(`cardlist-page:join`, currentUser.userId);
+      } else {
+        socket?.emit(`cardlist-page-authorized:join`);
+      }
     };
 
     const handleNewLogArrived = (payload: { log: ScannedLog }) => {
@@ -35,7 +40,11 @@ const ScannedLogsHistory: FC = () => {
     return () => {
       socket?.off(`card:update`);
       socket?.off(`connect`);
-      socket?.emit(`cardlist-page:leave`, currentUser.userId);
+      if (currentUser.role === Role.CUSTOMER) {
+        socket?.emit(`cardlist-page:leave`, currentUser.userId);
+      } else {
+        socket?.emit(`cardlist-page-authorized:leave`);
+      }
     };
   }, []);
 

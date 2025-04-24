@@ -36,19 +36,13 @@ const ParkingStatesPage: FC = () => {
       payload: { parkingStates: ParkingSlot[] },
       offSet: number
     ) => {
-      console.log("new states: " + payload.parkingStates);
       currentStateNumber.current = offSet;
-
       const sortedUpdateSlot = parkingSlotService.sortSlotStates(
         payload.parkingStates
       );
-
-      const newSlotsState = parkingSlotService.updateSlotStates(
-        slotList,
-        sortedUpdateSlot
+      setSlotList((prevValue) =>
+        parkingSlotService.updateSlotStates(prevValue, sortedUpdateSlot)
       );
-
-      setSlotList(newSlotsState);
     };
 
     socket?.on("connect", () => {

@@ -90,11 +90,6 @@ SemaphoreHandle_t exitGateCardDetectedConsumedByGateCtrl;
 
 TaskHandle_t displayManagerHandle = NULL;
 
-void printCurrentTime(String taskName){
-  unsigned long currentTime = micros();
-  Serial.println("[LOG] " + taskName + ": " + String(currentTime) + " µs");
-}
-
 int getBitAt (int srcNum, int index){
   //Index start from right to left
   return (srcNum >> index) & 1;
