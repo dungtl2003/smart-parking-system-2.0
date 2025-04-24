@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Card {
+  cardId           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId           String?   @db.Uuid
+  cardCode         String
+  name             String    @db.VarChar(255)
+  lastCheckinTime  DateTime? @db.Timestamptz(6)
+  lastCheckoutTime DateTime? @db.Timestamptz(6)
+  user             User?     @relation(fields: [userId], references: [userId], onUpdate: NoAction)
+  vehicle          Vehicle?
+}
+
+model ParkingSlot {
+  slotId Int       @id @db.SmallInt
+  state  SlotState @default(AVAILABLE)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model User {
+  userId        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  username      String    @db.VarChar(255)
+  role          UserRole  @default(CUSTOMER)
+  password      String?
+  refreshTokens String[]  @default([])
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  email         String    @unique(map: "user_unique_email") @db.VarChar(255)
+  cards         Card[]
+  vehicles      Vehicle[]
+}
+
+model Vehicle {
+  vehicleId    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  licensePlate String   @db.VarChar(255)
+  userId       String   @db.Uuid
+  cardId       String?  @unique @db.Uuid
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+  user         User     @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: NoAction)
+  card         Card?    @relation(fields: [cardId], references: [cardId], onUpdate: NoAction, map: "fk_vehicle_card")
+}
+
+model Video {
+  videoId   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt DateTime @db.Timestamptz(6)
+}
+
+model CheckinLog {
+  id           String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cardId       String           @db.Uuid
+  licensePlate String
+  type         CardScanningType
+  createdAt    DateTime         @db.Timestamptz(6)
+}
+
+enum UserRole {
+  CUSTOMER
+  STAFF
+  ADMIN
+}
+
+enum SlotState {
+  AVAILABLE
+  UNAVAILABLE
+}
+
+enum CardScanningType {
+  CHECKIN
+  CHECKOUT
+}
