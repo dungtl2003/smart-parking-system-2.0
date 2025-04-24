@@ -63,7 +63,8 @@ def camera_recording_task(
     last_time = time.time()
 
     # Rectangle parameters
-    x, y, w, h = 320, 300, 250, 170
+    x1, y1, w1, h1 = 320, 300, 250, 170  # Right
+    x2, y2, w2, h2 = 110, 240, 195, 90  # Left
     color = (0, 255, 0)  # Green color
     thickness = 2  # Rectangle border thickness
 
@@ -77,7 +78,10 @@ def camera_recording_task(
             logger.error("Could not read frame")
             continue
 
-        extracted_region = frame[y : y + h, x : x + w]
+        extracted_region = (
+            frame[y2 : y2 + h2, x2 : x2 + w2],
+            frame[y1 : y1 + h1, x1 : x1 + w1],
+        )
         if recognition_event.is_set() and frame_queue.empty():
             # Put the frame into the queue
             frame_queue.put(extracted_region)
@@ -115,7 +119,8 @@ def camera_recording_task(
             2,
         )
 
-        cv2.rectangle(frame, (x, y), (x + w, y + h), color, thickness)
+        cv2.rectangle(frame, (x1, y1), (x1 + w1, y1 + h1), color, thickness)
+        cv2.rectangle(frame, (x2, y2), (x2 + w2, y2 + h2), color, thickness)
 
         # Display the captured frame
         cv2.imshow("Recording", frame)

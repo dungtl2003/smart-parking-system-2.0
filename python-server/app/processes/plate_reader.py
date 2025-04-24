@@ -4,6 +4,7 @@ from multiprocessing import Queue
 import string
 from typing import Any, Tuple
 
+import cv2
 from cv2.typing import MatLike
 import easyocr
 from easyocr.easyocr import os
@@ -24,6 +25,13 @@ dict_int_to_char = {
     "5": "S",
     "8": "B",
 }
+
+
+def __process_image(image: MatLike) -> MatLike:
+    # gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    # thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
+    cv2.imwrite("thresh.jpg", image)
+    return image
 
 
 def __read_license_plate(
@@ -150,7 +158,6 @@ def process_frame(
     :param MatLike frame: Frame to be processed.
     :return: PIL Image of the processed frame.
     """
-    logger = logging.getLogger("uvicorn")
     result = []
 
     license_plates = license_plate_detector(frame)[0]
@@ -159,6 +166,7 @@ def process_frame(
 
         # crop license plate
         license_plate_crop = frame[int(y1) : int(y2), int(x1) : int(x2), :]
+        license_plate_crop = __process_image(license_plate_crop)
 
         # read license plate number
         license_plate_text, _ = __read_license_plate(reader, license_plate_crop)
@@ -174,6 +182,7 @@ def plate_number_recognition_task(
     recognition_event: Event,
     frame_queue: Queue,
     plate_number_queue: Queue,
+    gatepos_queue: Queue,
 ) -> None:
     """
     Run the plate number recognition process.
@@ -208,12 +217,20 @@ def plate_number_recognition_task(
             continue
 
         logger.debug("Recognizing plate numbers")
+        gatepos = None  # default value
         while recognition_event.is_set() and not stop_event.is_set():
             if frame_queue.empty():
                 continue
 
             try:
-                frame = frame_queue.get()
+                frames = frame_queue.get()
+
+                if not gatepos_queue.empty():
+                    gatepos = gatepos_queue.get()
+                if gatepos is None:
+                    continue
+
+                frame = frames[0] if gatepos == "L" else frames[1]
                 plate_numbers = process_frame(reader, license_plate_detector, frame)
                 [plate_number_queue.put(plate_number) for plate_number in plate_numbers]
             except Exception as e:

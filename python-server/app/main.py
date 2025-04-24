@@ -20,10 +20,11 @@ processes: list[Process] = []
 logger = logging.getLogger("uvicorn")
 settings = preload.settings
 
-frame_queue: Queue = Queue(maxsize=1)  # type: MatLike
+frame_queue: Queue = Queue(maxsize=1)  # type: Tuple[MatLike, MatLike] (in, out)
 raw_video_queue: Queue = Queue(maxsize=10)  # type: Tuple[str, float, float]
 proceed_video_queue: Queue = Queue(maxsize=10)  # type: str
 plate_number_queue: Queue = Queue(maxsize=100)  # type: list[str]
+gatepos_queue: Queue = Queue(maxsize=1)  # type: list[str]
 total_frames = Value("i", 0)
 stop_event = Event()
 recognition_event = Event()
@@ -44,7 +45,13 @@ def start_background_tasks():
         (
             "plate reader worker",
             plate_number_recognition_task,
-            (stop_event, recognition_event, frame_queue, plate_number_queue),
+            (
+                stop_event,
+                recognition_event,
+                frame_queue,
+                plate_number_queue,
+                gatepos_queue,
+            ),
         ),
         (
             "video publisher",
@@ -92,6 +99,7 @@ api_router = APIRouter(prefix=settings.api_route)
 
 class RequestBody(BaseModel):
     plate_number: str
+    gate_pos: str
 
 
 @api_router.post("/validate-car-plate")
@@ -106,10 +114,12 @@ async def validate_car_plate(body: RequestBody, timeout: int = 5000) -> dict[str
     :rtype: dict[str, str]
     """
     plate_number = body.plate_number
-    logger.info(f"Validating plate number: {plate_number}")
+    gate_pos = body.gate_pos
+    logger.info(f"Validating plate number: {plate_number}, gate position: {gate_pos}")
     start = time.time()
 
     logger.debug("Setting recognition event")
+    gatepos_queue.put(gate_pos)
     recognition_event.set()
     response = {"status": "invalid"}
     while time.time() - start < timeout / 1000:

@@ -2,12 +2,6 @@ import pathlib
 import os
 import sys
 
-import logging
-from easyocr import easyocr
-from ultralytics import YOLO
-
-from . import definitions
-
 
 class Settings:
     def __init__(self):
