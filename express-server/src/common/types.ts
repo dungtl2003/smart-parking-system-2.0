@@ -26,6 +26,7 @@ export interface ScannedLog {
     licensePlate: string;
     type: CardScanningType;
     createdAt: Date;
+    userId: string;
 }
 
 export interface ClientEvents {

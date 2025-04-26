@@ -105,13 +105,13 @@ const validateCard = async (req: Request, res: Response) => {
                 licensePlate: vehicle.licensePlate,
                 type: cardScanningType,
                 createdAt: currentTime,
+                userId: vehicle.userId,
             };
             //insert new log to checkinLog table
             checkinLogService.insertLog(newLog);
             //emit new log to frontend
             socketService.emitToCardListPageRoom({
                 log: newLog,
-                userId: vehicle.userId,
             });
             socketService.emitToCardListAuthorizedPageRoom({
                 log: newLog,

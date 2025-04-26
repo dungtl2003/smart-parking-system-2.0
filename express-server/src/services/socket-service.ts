@@ -105,7 +105,7 @@ const emitToParkingRoom = (data: {parkingStates: ParkingSlot[]}) => {
     lastParkingStates = data.parkingStates;
 };
 
-const emitToCardListPageRoom = (data: {log: ScannedLog; userId: string}) => {
+const emitToCardListPageRoom = (data: {log: ScannedLog}) => {
     if (!io) {
         console.debug(
             `[socket-service] emitToCardListPageRoom: io unavailable`
@@ -113,7 +113,7 @@ const emitToCardListPageRoom = (data: {log: ScannedLog; userId: string}) => {
         return;
     }
 
-    io.to(`cardlist-page-${data.userId}`).emit("card:update", data);
+    io.to(`cardlist-page-${data.log.userId}`).emit("card:update", data);
 };
 
 const emitToCardListAuthorizedPageRoom = (data: {log: ScannedLog}) => {

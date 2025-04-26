@@ -1,6 +1,5 @@
 import {ResponseMessage} from "@/common/constants";
 import {UserInToken} from "@/common/types";
-import cardService from "@/services/card-service";
 import checkinLogService from "@/services/checkin-log-service";
 import jwtService from "@/services/jwt-service";
 import {UserRole} from "@prisma/client";
@@ -14,14 +13,9 @@ const getLogs = async (req: Request, res: Response) => {
         accessToken.replace("Bearer ", "")
     ) as UserInToken;
 
-    let cardIds: string[] | undefined;
-    if (user.role == UserRole.CUSTOMER) {
-        cardIds = await cardService.getCardIds({
-            userId: user.userId,
-        });
-    }
-
-    const checkinLogs = await checkinLogService.getLogs({cardIds: cardIds});
+    const checkinLogs = await checkinLogService.getLogs({
+        userId: user.role == UserRole.CUSTOMER ? user.userId : null,
+    });
 
     res.status(StatusCodes.OK).json({
         message: ResponseMessage.SUCCESS,

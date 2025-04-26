@@ -57,6 +57,7 @@ model CheckinLog {
   licensePlate String
   type         CardScanningType
   createdAt    DateTime         @db.Timestamptz(6)
+  userId       String?
 }
 
 enum UserRole {
