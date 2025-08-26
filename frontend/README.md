@@ -13,7 +13,23 @@ FE for **Smart Parking System**. This project uses React, Typescript and Vitejs.
 
 ---
 
-## Getting Started
+## GUIDE TO RUN PROJECT
+
+- Config your .env file (or use [the default one](./.env) is ok)<br>
+  Then run the following command:
+- Install all dependencies
+
+```bash
+npm i
+```
+
+- Run in dev mode
+
+```bash
+npm run dev
+```
+
+## DEVELOPMENT
 
 Setup husky:
 
@@ -31,21 +47,4 @@ Check invalid code:
 
 ```bash
 npm run lint
-```
-
-## Development
-
-.env file is required to run the project. For the full .env file example, check
-out [this template](./template/.env.template) <br>
-Then run the following command
-
-```bash
-npm run dev
-```
-
-Test app in production environment
-
-```bash
-npm run build
-npm run preview
 ```
