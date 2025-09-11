@@ -34,6 +34,7 @@ const CardActionDialog: React.FC<CardActionDialogProps> = ({
     handleSubmit,
     reset,
     setValue,
+    setFocus,
     formState: { errors, isSubmitting },
   } = useForm<CardFormProps>({
     resolver: zodResolver(cardSchema),
@@ -56,10 +57,20 @@ const CardActionDialog: React.FC<CardActionDialogProps> = ({
     } else toast.error(result.message);
   };
 
-  const handleKeyDown = (event: React.KeyboardEvent) => {
+  const handleEnterLastInput = (event: React.KeyboardEvent) => {
     if (event.key === "Enter") {
       event.preventDefault();
       handleSubmit(handleFormSubmission)();
+    }
+  };
+
+  const focusNextInput = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    nextInput: "cardCode" | "name"
+  ) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      setFocus(nextInput);
     }
   };
 
@@ -82,7 +93,7 @@ const CardActionDialog: React.FC<CardActionDialogProps> = ({
                 {...register("cardCode")}
                 type="text"
                 className="h-full text-lg focus-visible_ring-0 border-2 border-gray-300"
-                onKeyDown={handleKeyDown}
+                onKeyDown={(e) => focusNextInput(e, "name")}
               />
             </div>
             <div className="flex">
@@ -98,7 +109,7 @@ const CardActionDialog: React.FC<CardActionDialogProps> = ({
                 {...register("name")}
                 type="text"
                 className="h-full text-lg focus-visible_ring-0 border-2 border-gray-300"
-                onKeyDown={handleKeyDown}
+                onKeyDown={handleEnterLastInput}
               />
             </div>
             <div className="flex justify-end">

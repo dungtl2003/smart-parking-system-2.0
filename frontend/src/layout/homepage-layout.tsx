@@ -15,7 +15,7 @@ const HomepageLayout: React.FC = () => {
   return (
     <main>
       <ScrollToTop />
-      <div className="py-5 bg-[url('homepage_bg.jpg')] bg-cover bg-fixed bg-center relative">
+      <div className="py-5 bg-[url('/homepage_bg.jpg')] bg-cover bg-fixed bg-center relative">
         <div className="absolute inset-0 bg-black bg-opacity-50"></div>
         <HomepageHeader className="z-50 relative" />
         <div className="relative flex justify-center w-full py-10 min-h-[70vh] gap-6 4xl_gap-10">

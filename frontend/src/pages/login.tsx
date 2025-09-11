@@ -23,6 +23,8 @@ const Login: FC = () => {
     register,
     handleSubmit,
     setError,
+    setFocus,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormProps>({
     resolver: zodResolver(loginSchema),
@@ -60,6 +62,23 @@ const Login: FC = () => {
     }
   };
 
+  const focusNextInput = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    nextInput: "password" | "email"
+  ) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      setFocus(nextInput);
+    }
+  };
+
+  const handleEnterLastInput = (event: React.KeyboardEvent) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      handleLoginFormSubmission(getValues());
+    }
+  };
+
   return (
     <form
       onSubmit={handleSubmit(handleLoginFormSubmission)}
@@ -84,9 +103,10 @@ const Login: FC = () => {
               id="email"
               {...register("email")}
               placeholder="eg: abc@gmail.com"
-              defaultValue="huy12@gmail.com"
               autoComplete="email"
               className="text-base placeholder_text-base placeholder_italic"
+              onKeyDown={(e) => focusNextInput(e, "password")}
+              autoFocus
             />
           </div>
           <div className="flex flex-col gap-2 relative">
@@ -98,9 +118,9 @@ const Login: FC = () => {
               id="password"
               {...register("password")}
               type={!passwordVisibility ? "password" : "text"}
-              defaultValue="123123a@"
               autoComplete="new-password"
               className="text-lg pr-16"
+              onKeyDown={handleEnterLastInput}
             />
             <button
               className="absolute right-3 bottom-[0.5rem] text-muted-foreground border-l-2 pl-3"

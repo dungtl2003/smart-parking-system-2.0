@@ -32,6 +32,7 @@ const StaffAdditionDialog: React.FC<StaffAdditionDialogProps> = ({
     handleSubmit,
     reset,
     setError,
+    setFocus,
     formState: { errors, isSubmitting },
   } = useForm<StaffFormProps>({
     resolver: zodResolver(staffSchema),
@@ -55,10 +56,20 @@ const StaffAdditionDialog: React.FC<StaffAdditionDialogProps> = ({
     } else toast.error(result.message);
   };
 
-  const handleKeyDown = (event: React.KeyboardEvent) => {
+  const handleEnterLastInput = (event: React.KeyboardEvent) => {
     if (event.key === "Enter") {
       event.preventDefault();
       handleSubmit(handleFormSubmission)();
+    }
+  };
+
+  const focusNextInput = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    nextInput: "username" | "password" | "retypepassword" | "email"
+  ) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      setFocus(nextInput);
     }
   };
 
@@ -78,10 +89,12 @@ const StaffAdditionDialog: React.FC<StaffAdditionDialogProps> = ({
               </Label>
               <Input
                 id="name"
+                autoComplete="off"
                 {...register("username")}
                 type="text"
                 placeholder="eg: John Smith"
                 className="h-full text-lg placeholder_italic placeholder_text-base focus-visible_ring-0 border-2 border-gray-300"
+                onKeyDown={(e) => focusNextInput(e, "email")}
               />
             </div>
             <div className="flex">
@@ -91,10 +104,12 @@ const StaffAdditionDialog: React.FC<StaffAdditionDialogProps> = ({
               </Label>
               <Input
                 id="email"
+                autoComplete="off"
                 {...register("email")}
                 type="text"
                 placeholder="eg: abc@gmail.com"
                 className="h-full text-lg placeholder_italic placeholder_text-base focus-visible_ring-0 border-2 border-gray-300"
+                onKeyDown={(e) => focusNextInput(e, "password")}
               />
             </div>
             <div className="flex relative">
@@ -104,9 +119,11 @@ const StaffAdditionDialog: React.FC<StaffAdditionDialogProps> = ({
               </Label>
               <Input
                 id="password"
+                autoComplete="new-password"
                 {...register("password")}
                 type={!passwordVisibility ? "password" : "text"}
                 className="h-full text-lg placeholder_italic placeholder_text-base focus-visible_ring-0 border-2 border-gray-300"
+                onKeyDown={(e) => focusNextInput(e, "retypepassword")}
               />
               <button
                 className="absolute right-3 bottom-[0.5rem] text-muted-foreground border-l-2 pl-3"
@@ -128,10 +145,11 @@ const StaffAdditionDialog: React.FC<StaffAdditionDialogProps> = ({
               </Label>
               <Input
                 id="retypepassword"
+                autoComplete="new-password"
                 {...register("retypepassword")}
                 type={!retypePasswordVisibility ? "password" : "text"}
                 className="h-full text-lg placeholder_italic placeholder_text-base focus-visible_ring-0 border-2 border-gray-300"
-                onKeyDown={handleKeyDown}
+                onKeyDown={handleEnterLastInput}
               />
               <button
                 className="absolute right-3 bottom-[0.5rem] text-muted-foreground border-l-2 pl-3"

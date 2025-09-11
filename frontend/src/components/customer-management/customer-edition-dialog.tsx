@@ -35,6 +35,7 @@ const CustomerEditionDialog: React.FC<CustomerEditionDialogProps> = ({
     register,
     handleSubmit,
     setValue,
+    setFocus,
     formState: { errors, isSubmitting },
   } = useForm<CustomerEditionFormProps>({
     resolver: zodResolver(customerEditionSchema),
@@ -68,12 +69,22 @@ const CustomerEditionDialog: React.FC<CustomerEditionDialogProps> = ({
     }
   };
 
+  const focusNextInput = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    nextInput: "email"
+  ) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      setFocus(nextInput);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{props.children}</DialogTrigger>
       <DialogContent className="min-w-[30rem]">
         <DialogHeader className="min-h-10 mb-2">
-          <DialogTitle className="text-[1.5rem]">Edi</DialogTitle>
+          <DialogTitle className="text-[1.5rem]">Edit profile</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(handleFormSubmission)}>
           <div className="flex flex-col gap-4">
@@ -88,6 +99,7 @@ const CustomerEditionDialog: React.FC<CustomerEditionDialogProps> = ({
                 type="text"
                 placeholder="eg: John Smith"
                 className="h-full text-lg placeholder_italic placeholder_text-base focus-visible_ring-0 border-2 border-gray-300"
+                onKeyDown={(e) => focusNextInput(e, "email")}
               />
             </div>
             <div className="flex">
