@@ -13,7 +13,7 @@ FE for **Smart Parking System**. This project uses React, Typescript and Vitejs.
 
 ---
 
-## GUIDE TO RUN PROJECT
+## FOR DEVELOPEMENT
 
 - Config your .env file (or use [the default one](./.env) is ok)<br>
   Then run the following command:
@@ -29,21 +29,19 @@ npm i
 npm run dev
 ```
 
-## DEVELOPMENT
-
-Setup husky:
+- You can setup husky (optional):
 
 ```bash
 npm run prepare
 ```
 
-Format code:
+- Format code (optional):
 
 ```bash
 npm run format
 ```
 
-Check invalid code:
+- Check invalid code (optional):
 
 ```bash
 npm run lint
