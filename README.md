@@ -1,6 +1,6 @@
 # Smart parking system website
 
-## ⇁ GUIDE TO RUN PROJECT
+## ⇁ GUIDE TO RUN PROJECT (ONLY WEB PARTS)
 
 - Clone this project<br>
 - Run docker compose file:
