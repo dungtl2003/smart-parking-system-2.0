@@ -16,7 +16,9 @@ const slots: SlotDictionary = {
 };
 
 const getSlotsStatus = async (): Promise<ParkingSlot[]> => {
-    const slotsStatus = await prisma.parkingSlot.findMany();
+    const slotsStatus = await prisma.parkingSlot.findMany({
+        orderBy: {slotId: "asc"},
+    });
     slotsStatus.forEach((slot) => {
         slots[`${slot.slotId}`] = slot.state;
     });
