@@ -14,12 +14,12 @@ const defaultAdminAccount = {
 const defaultSlotNumber = 6;
 
 const defaultCardList = [
-    {cardCode: "0x6D-0xE2-0xD7-0x21", name: "1"},
-    {cardCode: "0x23-0x0A-0x54-0x11", name: "2"},
-    {cardCode: "0xE3-0x9A-0x66-0x10", name: "3"},
-    {cardCode: "0x43-0x34-0x54-0x10", name: "4"},
-    {cardCode: "0x40-0x1E-0x4A-0x12", name: "5"},
-    {cardCode: "0x6A-0xD5-0x17-0xA4", name: "6"},
+    {cardCode: "0X6D-0XE2-0XD7-0X21", name: "1"},
+    {cardCode: "0X23-0X0A-0X54-0X11", name: "2"},
+    {cardCode: "0XE3-0X9A-0X66-0X10", name: "3"},
+    {cardCode: "0X43-0X34-0X54-0X10", name: "4"},
+    {cardCode: "0X40-0X1E-0X4A-0X12", name: "5"},
+    {cardCode: "0X6A-0XD5-0X17-0XA4", name: "6"},
 ];
 
 // ---------------------------------------------------------
@@ -57,28 +57,14 @@ async function main() {
         )
     );
 
-    // insert default cards
-    const cards = await prisma.card.findMany({
-        select: {cardId: true, cardCode: true},
-        where: {
-            cardCode: {
-                in: defaultCardList.map((card) => card.cardCode),
-            },
-        },
-    });
+    // insert default cards if Card table is empty
+    const cards = await prisma.card.count();
 
-    await Promise.all(
-        cards.map((card) =>
-            prisma.card.upsert({
-                where: {cardId: card.cardId},
-                update: {},
-                create: {
-                    name: ``,
-                    cardCode: card.cardCode,
-                },
-            })
-        )
-    );
+    if (cards === 0) {
+        await prisma.card.createMany({
+            data: defaultCardList,
+        });
+    }
 }
 
 main()

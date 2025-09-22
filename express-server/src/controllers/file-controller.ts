@@ -3,6 +3,12 @@ import path from "path";
 import videoService from "@/services/video-service";
 import {ResponseMessage} from "@/common/constants";
 import fs from "fs";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 const VIDEOS_DIR = "../../uploads";
 
@@ -22,7 +28,13 @@ const uploadVideo = async (req: Request, res: Response) => {
     const minute = parseInt(dateString.slice(10, 12), 10);
     const second = parseInt(dateString.slice(12, 14), 10);
 
-    const createdAt = new Date(year, month, day, hour, minute, second);
+    const createdAt = dayjs
+        .tz(
+            `${year}-${month}-${day} ${hour}:${minute}:${second}`,
+            "YYYY-MM-DD HH:mm:ss",
+            "Asia/Ho_Chi_Minh"
+        )
+        .toDate();
     const videoId = await videoService.insertVideo({createdAt: createdAt});
 
     fs.renameSync(

@@ -13,7 +13,7 @@
 
 //NOTICE: change to the domain of webserver
 //NOTICE: currently, we cannot make ESP communicate with outsider server which is not in the same local wifi address with ESP
-const String WEB_SERVER_DOMAIN = "http://192.168.1.19:4000";
+const String WEB_SERVER_DOMAIN = "http://10.123.234.181:4000";
 const int MAX_FAILED_PING = 3;
 
 ESP8266WiFiMulti WiFiMulti;
@@ -38,8 +38,7 @@ void setup() {
 
   WiFi.mode(WIFI_STA);
   // must use the same wifi as Webserver
-  WiFiMulti.addAP("P411", "thptphamhongthai");
-  //WiFiMulti.addAP("iPhone", "00000001");
+  WiFiMulti.addAP("Galaxy M514725", "xbqq9708");
   //testing purpose: randomSeed(analogRead(A0));
 }
 
