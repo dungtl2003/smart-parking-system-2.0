@@ -13,7 +13,7 @@
 
 //NOTICE: change to the domain of webserver
 //NOTICE: currently, we cannot make ESP communicate with outsider server which is not in the same local wifi address with ESP
-const String WEB_SERVER_DOMAIN = "http://10.123.234.181:4000";
+const String WEB_SERVER_DOMAIN = "http://10.44.85.181:4000";
 const int MAX_FAILED_PING = 3;
 
 ESP8266WiFiMulti WiFiMulti;
@@ -38,7 +38,7 @@ void setup() {
 
   WiFi.mode(WIFI_STA);
   // must use the same wifi as Webserver
-  WiFiMulti.addAP("Galaxy M514725", "xbqq9708");
+  WiFiMulti.addAP("SoC", "74747373");
   //testing purpose: randomSeed(analogRead(A0));
 }
 
@@ -202,44 +202,3 @@ void loop() {
     }
   }  
 }
-
-
-// For testing purpose: request to update parking state with random binary string
-// String randomBinaryString(int length = 6) {
-//   String result = "";
-//   for (int i = 0; i < length; i++) {
-//     int bit = random(0, 2); // sinh 0 hoặc 1
-//     result += String(bit);
-//     if (i < length - 1) {
-//       result += ",";
-//     }
-//   }
-//   return result;
-// }
-
-// void loop() {
-//   if(failedPingCounter >= MAX_FAILED_PING){
-//     Serial.println("Too many failed ping request, Reset WiFi...");
-//     WiFi.disconnect(true);
-//     delay(1000);
-//     WiFiMulti.run();
-//     failedPingCounter = 0;
-//   }
-
-//   if ((WiFiMulti.run() != WL_CONNECTED)) { // wifi not is ready
-//     Serial.println("WiFi is not ready...");
-//     delay(500);
-//     return;
-//   }
-
-//   if(!readyToRequest){ // express server is ready
-//     pingToExpressServer();
-//     delay(1000);
-//     return;
-//   }
-
-//   delay(10000);
-//   String s = randomBinaryString();
-//   Serial.println(s);
-//   requestToUpdateParkingState(s);
-// }

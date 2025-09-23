@@ -22,7 +22,7 @@ const uploadVideo = async (req: Request, res: Response) => {
     //get datetime
     const dateString = fileName.split("_")[1];
     const year = parseInt(dateString.slice(0, 4), 10);
-    const month = parseInt(dateString.slice(4, 6), 10) - 1;
+    const month = parseInt(dateString.slice(4, 6), 10);
     const day = parseInt(dateString.slice(6, 8), 10);
     const hour = parseInt(dateString.slice(8, 10), 10);
     const minute = parseInt(dateString.slice(10, 12), 10);
