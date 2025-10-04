@@ -48,6 +48,9 @@
 #define LED_PIN 7
 #define LIGHT_SENSOR_PIN 6
 
+#define BUZZER_PIN 2
+#define IGNITION_SENSOR_PIN 4
+
 #define TOTAL_SLOTS 6
 #define TOTAL_SLOTS_BITS_TO_INT 63
 
@@ -73,6 +76,8 @@ QueueHandle_t scannedCardStateQueue;
 QueueHandle_t gateSignalQueue;
 
 QueueHandle_t lightStateQueue;
+
+QueueHandle_t ignitionSensorStateQueue;
 
 QueueHandle_t scannedCardInfoQueue;
 
@@ -275,7 +280,7 @@ void signalReader(void *pvParameters) {
   int slotStates = 0;
   int gateState = 0;
   int lightState = 0;
-
+  int ignitionSensorState = 0;
   while(1) {
     // read parkinglot sensors
     slotStates = 0;
@@ -307,6 +312,14 @@ void signalReader(void *pvParameters) {
     result = xQueueOverwrite(lightStateQueue, &lightState);
     if(result == errQUEUE_FULL){
       Serial.println("[signalReader] Fail to overwrite lightStateQueue");
+    }
+
+    //read ignition sensor
+    ignitionSensorState = digitalRead(IGNITION_SENSOR_PIN);
+
+    result = xQueueOverwrite(ignitionSensorStateQueue, &ignitionSensorState);
+    if(result == errQUEUE_FULL){
+      Serial.println("[signalReader] Fail to overwrite ignitionSensorStateQueue");
     }
   }
 }
@@ -414,6 +427,19 @@ void lightController(void *pvParameters) {
   }
 }
 
+void buzzerController(void *pvParameters) {
+  int buzzerState = 0;
+
+  while(1) {
+    xQueuePeek(ignitionSensorStateQueue, &buzzerState, 0);Serial.print("[ignitionSensorReader] isDetected: ");
+
+    if (buzzerState == LOW) {
+      tone(BUZZER_PIN, 1000);
+    } else {
+      noTone(BUZZER_PIN);
+    }
+  }
+}
 
 void gateController(void *pvParameters) {
   int entrySwitchLastState = 0;
@@ -603,6 +629,7 @@ void setup() {
   scannedCardStateQueue = xQueueCreate(1, sizeof(int));
   gateSignalQueue = xQueueCreate(1, sizeof(int));
   lightStateQueue = xQueueCreate(1, sizeof(int));
+  ignitionSensorStateQueue = xQueueCreate(1, sizeof(int));
   scannedCardInfoQueue = xQueueCreate(1, sizeof(int));
   cardWithSpecificGateQueue = xQueueCreate(10, sizeof(int));
 
@@ -629,6 +656,7 @@ void setup() {
   xTaskCreate(slotStatesChangeDetector, "Task7", 300, NULL, 1, NULL);
   xTaskCreate(espCommandProducer, "Task8", 300, NULL, 1, NULL);
   xTaskCreate(rfidScanDecisionUnit, "Task9", 300, NULL, 1, NULL);
+  xTaskCreate(buzzerController, "Task10", 300, NULL, 1, NULL);
 
   vTaskStartScheduler();
   // unsigned long start = micros();

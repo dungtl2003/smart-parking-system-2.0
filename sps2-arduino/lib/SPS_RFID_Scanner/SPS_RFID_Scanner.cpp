@@ -19,7 +19,7 @@ bool SPS_RFID_Scanner::validateCard() {
     isLastCardValid = false;
     return false;
   }
-
+ //rfid.PICC_DumpToSerial(&(rfid.uid)); 
   for (int i = 0; i < totalValidUIDs; i++) {
     bool match = true;
     for (byte j = 0; j < 4; j++) {
