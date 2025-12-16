@@ -63,7 +63,7 @@ void requestToCheckCard (String cardId, String pos) {
   // Serial.println("USER:Huy\nCHECKING-RESULT:1");
   // return;
 
-  http.setTimeout(10000); //ms
+  http.setTimeout(30000); //ms
   String url = carEnteringUrl 
               + "?card_id=" + encodeQueryParam(cardId) 
               + "&gate_pos=" + encodeQueryParam(pos);

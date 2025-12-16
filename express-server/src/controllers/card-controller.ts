@@ -67,24 +67,24 @@ const validateCard = async (req: Request, res: Response) => {
     console.debug("Get vehicle from DB: ", vehicle);
 
     try {
-        // const scanResult = await axios.post<{status: "valid" | "invalid"}>(
-        //     config.CAMERA_SERVER_API + `?timeout=5000`,
-        //     {
-        //         plate_number: vehicle.licensePlate,
-        //         gate_pos: gatePos,
-        //     },
-        //     {
-        //         timeout: 30000,
-        //     }
-        // );
-        // console.debug(`python server response: ${scanResult}`);
+        const scanResult = await axios.post<{status: "valid" | "invalid"}>(
+            config.CAMERA_SERVER_API + `?timeout=20000`,
+            {
+                plate_number: vehicle.licensePlate,
+                gate_pos: gatePos,
+            },
+            {
+                timeout: 30000,
+            }
+        );
+        console.debug(`python server response: ${scanResult}`);
 
         //test
-        const scanResult = {
-            data: {
-                status: "valid",
-            },
-        };
+        // const scanResult = {
+        //     data: {
+        //         status: "valid",
+        //     },
+        // };
 
         if (scanResult.data.status == "valid") {
             const currentTime: Date = new Date();
